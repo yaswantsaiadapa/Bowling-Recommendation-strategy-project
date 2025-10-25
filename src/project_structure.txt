@@ -1,0 +1,18 @@
+cricket_strategy_recommender/
+│
+├── data/
+│   ├── raw/                    # Original dataset
+│   ├── processed/              # Processed data with features
+│   └── batsman_profiles/       # Batsman performance by length and line
+│
+├── models/
+│   ├── strategy_engine.py      # Core recommendation engine
+│   ├── field_templates.py      # Field settings for different strategies
+│   └── batsman_analyzer.py     # Batsman performance analysis
+│
+├── utils/
+│   ├── data_processor.py       # Data cleaning and feature engineering
+│   └── visualizer.py           # Field visualization
+│
+├── app.py                      # Streamlit dashboard
+└── requirements.txt
