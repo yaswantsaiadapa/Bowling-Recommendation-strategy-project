@@ -2,68 +2,7 @@
 
 ## Project Overview
 
-A comprehensive **Data Science and Machine Learning system** for cricket performance analysis and strategic recommendations. This project analyzes ball-by-ball cricket data to extract meaningful patterns about batsman and bowler performance, predict match outcomes, and recommend optimal strategies for team composition and field placement.
-
-The system combines statistical analysis, machine learning models, and interactive visualizations to provide data-driven insights into cricket gameplay and player performance metrics.
-
----
-
-## Problem Statement
-
-Cricket performance depends on numerous interconnected factors:
-- **Batsman Performance**: Strike rate and boundary percentage vary with bowler type and match phase
-- **Bowler Effectiveness**: Success depends on pitch conditions, opposition strengths, and bowling strategy
-- **Match Phases**: Powerplay (1-6), Middle (7-15), and Death (16-20) overs require different approaches
-- **Field Placement**: Optimal fielder positions depend on batsman style, bowler type, pitch conditions, and phase
-
-This system addresses these by:
-1. Analyzing historical cricket data to extract performance patterns
-2. Building predictive models for boundaries, good balls, and wickets
-3. Generating strategic recommendations based on real-world metrics
-4. Providing interactive dashboards for data exploration and visualization
-
----
-
-## Key Features
-
-### 1. **Batsman Analysis**
-- Comprehensive batting metrics: runs, strike rate, boundary percentage, dismissal rate
-- Adaptability analysis across different bowler types
-- Phase-wise performance breakdown (Powerplay, Middle, Death)
-- Batsman similarity matrices for matchup analysis
-
-### 2. **Bowler Analysis**
-- Complete bowler statistics: economy rate, strike rate, dot ball percentage, wicket percentage
-- Bowler strength categorization (Elite, Strong, Average, Weak)
-- Success index combining multiple performance metrics
-- Bowling style effectiveness analysis
-
-### 3. **Predictive Models**
-- **Boundary Prediction**: Identifies deliveries likely to yield 4 or 6 runs
-- **Good Ball Prediction**: Detects restrictive deliveries (≤1 run, no boundaries)
-- **Pitch Analysis**: Classifies pitch line and length characteristics
-- **Ball Type Classification**: Identifies delivery type (fast, spin, etc.)
-
-### 4. **Strategic Recommendations**
-- Field placement suggestions based on:
-  - Pitch conditions (line and length)
-  - Bowler type and style
-  - Batsman style and preferences
-  - Current match phase
-- Batting strategy recommendations against specific opposition
-- Matchup success rate analysis between batsman-bowler pairs
-
-### 5. **Phase-wise Analysis**
-- Strike rate trends across match phases
-- Boundary percentage analysis
-- Adaptability metrics per phase
-- Playing role identification
-
-### 6. **Interactive Dashboard**
-- Plotly-based web interface for data exploration
-- Player performance comparisons
-- Real-time analytics and visualizations
-- Match simulation and strategy testing
+A **Data Science & Machine Learning** system for cricket performance analysis and strategic recommendations. The system ingests ball-by-ball ICC T20 World Cup data, builds rich player profiles, trains predictive models, and generates data-driven bowling strategy and field placement recommendations.
 
 ---
 
@@ -71,441 +10,174 @@ This system addresses these by:
 
 ```
 cricket-strategy/
-├── README.md                              # Project documentation
-├── requirements.txt                       # Python dependencies
+├── README.md
+├── src/
+│   └── requirements.txt
 │
-├── data/                                  # Data directory
-│   ├── csv/                              # Raw cricket data
-│   │   ├── ballbyball.csv                # Ball-by-ball match data
-│   │   ├── country.csv                   # Country information
-│   │   ├── ground.csv                    # Cricket ground details
-│   │   ├── matches.csv                   # Match metadata
-│   │   ├── players.csv                   # Player information
-│   │   ├── season.csv                    # Season information
-│   │   ├── team.csv                      # Team data
-│   │   └── town.csv                      # Town/location data
+├── data/
+│   ├── csv/                          ← Raw source data (do not edit)
+│   │   ├── ballbyball.csv
+│   │   ├── matches.csv
+│   │   ├── players.csv
+│   │   ├── ground.csv
+│   │   ├── team.csv
+│   │   ├── season.csv
+│   │   ├── country.csv
+│   │   └── town.csv
 │   │
-│   ├── final_processed_data.csv          # Main processed dataset
-│   ├── Preprocessed_Data.csv             # Alternative preprocessed data
-│   ├── batsman_profiles.csv              # Batsman statistics
-│   ├── batsman_stats.csv                 # Batsman performance metrics
-│   ├── batsman_similarity.csv            # Batsman similarity matrix
-│   ├── bowler_stats.csv                  # Bowler performance metrics
-│   ├── phase_sr.csv                      # Phase-wise strike rate analysis
-│   └── notebook_extraction_report.json   # Data extraction metadata
+│   ├── final_processed_data.csv      ← Main cleaned dataset (produced by 01)
+│   ├── batsman_profiles.csv          ← Batsman stats (produced by 03)
+│   ├── batsman_similarity.csv        ← Cosine similarity matrix (produced by 03)
+│   ├── bowler_stats.csv              ← Bowler stats (produced by 05)
+│   ├── bowling_success_model.csv     ← Matchup stats (produced by 05)
+│   └── phase_sr.csv                  ← Phase-wise stats (produced by 04)
 │
-├── models/                               # Trained ML models (Joblib)
-│   ├── predict_boundary_model.joblib
-│   ├── predict_good_ball_model_random_forest.joblib
-│   ├── pitch_line_model.joblib
-│   ├── pitch_length_model.joblib
-│   └── model_balltype.joblib
+├── models/
+│   ├── label_encoders.joblib         ← All categorical encoders (produced by 06)
+│   ├── predict_boundary_model.joblib ← (produced by 06)
+│   └── predict_good_ball_model.joblib← (produced by 06)
 │
-├── model_feature_engineered_datasets/   # Feature datasets for models
-│   ├── df_model_boundary.csv
-│   ├── df_model_good_ball.csv
-│   ├── df_model_line.csv
-│   └── df_model_ball_type.csv
-│
-├── notebooks/                            # Jupyter analysis notebooks
-│   ├── data_exploration_and_processing.ipynb
-│   ├── data_processing_1.ipynb
-│   ├── core_batsman_analysis.ipynb
-│   ├── batsman_analysis.ipynb
-│   ├── core_bowling_analysis.ipynb
-│   ├── phase_wise_analysis.ipynb
-│   ├── batsman_analysis_engine.ipynb
-│   ├── predict_boundary_and_batsman_analysis_engine.ipynb
-│   └── plotly_dashboard.ipynb
-│
-├── static/                               # Web assets
-│   └── cricket.jpg                       # Cricket theme image
-│
-└── Cricket strategy Recommendation System.pdf
+└── notebooks/                        ← Run in order
+    ├── 01_data_processing.ipynb
+    ├── 02_data_exploration.ipynb
+    ├── 03_batsman_analysis.ipynb
+    ├── 04_phase_wise_analysis.ipynb
+    ├── 05_bowling_analysis.ipynb
+    ├── 06_predictive_models.ipynb
+    └── 07_strategy_recommendation.ipynb
 ```
 
 ---
 
-## Data Overview
+## Run Order
 
-### Raw Source Data (data/csv/)
-Comprehensive cricket dataset covering:
-- **ballbyball.csv**: Individual delivery information including bowler, batsman, runs, wickets, and pitch details
-- **matches.csv**: Match-level metadata (venues, teams, dates)
-- **players.csv**: Player information and profiles
-- **team.csv, season.csv, country.csv, ground.csv, town.csv**: Reference and contextual data
+Run notebooks **strictly in numerical order**. Each notebook reads outputs produced by the previous one.
 
-### Processed Datasets (data/)
-- **final_processed_data.csv**: Integrated dataset combining all raw data with engineered features
-- **batsman_profiles.csv**: Aggregated batsman-level statistics
-- **bowler_stats.csv**: Aggregated bowler-level statistics
-- **phase_sr.csv**: Phase-specific performance metrics
-- **Preprocessed_Data.csv**: Alternative preprocessed format
+| # | Notebook | Reads | Writes |
+|---|----------|-------|--------|
+| 01 | `01_data_processing.ipynb` | `data/csv/*.csv` | `data/final_processed_data.csv` |
+| 02 | `02_data_exploration.ipynb` | `final_processed_data.csv` | *(visualisations only)* |
+| 03 | `03_batsman_analysis.ipynb` | `final_processed_data.csv` | `batsman_profiles.csv`, `batsman_similarity.csv` |
+| 04 | `04_phase_wise_analysis.ipynb` | `final_processed_data.csv` | `phase_sr.csv` |
+| 05 | `05_bowling_analysis.ipynb` | `final_processed_data.csv` | `bowler_stats.csv`, `bowling_success_model.csv` |
+| 06 | `06_predictive_models.ipynb` | `final_processed_data.csv` | `models/*.joblib` |
+| 07 | `07_strategy_recommendation.ipynb` | all `data/*.csv` | *(recommendations + visualisations)* |
 
 ---
 
-## Machine Learning Models
-
-Five trained classification models using Random Forest:
-
-| Model | Target | Key Features | Output |
-|-------|--------|--------------|--------|
-| `predict_boundary_model.joblib` | Boundary prediction | Innings, over, pitch, shot type, player styles | Boundary (Yes/No) |
-| `predict_good_ball_model_random_forest.joblib` | Restrictive delivery | Same as above | Good Ball (Yes/No) |
-| `pitch_line_model.joblib` | Pitch line classification | Delivery parameters | Line category |
-| `pitch_length_model.joblib` | Pitch length classification | Delivery parameters | Length category |
-| `model_balltype.joblib` | Ball type classification | Bowler attributes, conditions | Ball type category |
-
-**Architecture**: Random Forest with balanced class weights for handling imbalanced cricket data
-
----
-
-## Notebooks & Analysis
-
-### Data Preparation
-- **data_exploration_and_processing.ipynb**: Initial data exploration, quality checks, summary statistics
-- **data_processing_1.ipynb**: Data integration, feature creation, dataset validation
-
-### Batsman Analytics
-- **batsman_analysis.ipynb**: Core batting metrics, similarity matrices, performance trends
-- **core_batsman_analysis.ipynb**: Adaptability analysis, strategy recommendations, field placement logic
-- **batsman_analysis_engine.ipynb**: Comprehensive recommendation engine, player comparisons
-
-### Bowler Analytics
-- **core_bowling_analysis.ipynb**: Bowler statistics, strength metrics, success index calculation
-
-### Strategic Analysis
-- **phase_wise_analysis.ipynb**: Strike rate trends, phase adaptability, role identification
-- **predict_boundary_and_batsman_analysis_engine.ipynb**: Model training, feature engineering, predictions
-
-### Dashboard
-- **plotly_dashboard.ipynb**: Interactive Plotly dashboard for visualization and exploration
-
----
-
-## System Requirements
-
-- **Python**: 3.8 or higher
-- **Memory**: 4GB RAM minimum (for full dataset processing)
-- **Disk Space**: 2GB for data + models
-- **Processor**: Any modern CPU (training takes 5-30 minutes)
-
-### 1. Install Dependencies
+## Setup
 
 ```bash
-cd "C:\Users\yaswa\OneDrive\Desktop\projects\artificial intelligence project"
+# 1. Install dependencies
 pip install -r src/requirements.txt
-```
 
-**Required packages**:
-- pandas, numpy - Data manipulation
-- matplotlib, seaborn - Visualization
-- scikit-learn - Machine learning
-- plotly - Interactive charts
-- joblib - Model serialization
-
-### 2. Data Verification
-Confirm all CSV files exist in `data/` and `data/csv/` directories
-
-### 3. Running Notebooks
-
-```bash
+# 2. Launch Jupyter
 jupyter notebook
-# Open any .ipynb file and run cells sequentially
+
+# 3. Open notebooks/ and run in order 01 → 07
 ```
 
-**Note**: Update hardcoded file paths in notebooks to match your system if needed.
+**One path to change**: In every notebook, `PROJECT_ROOT` is set to the parent of the notebooks folder:
+```python
+PROJECT_ROOT = os.path.abspath(os.path.join(os.getcwd(), '..'))
+```
+This means **no hardcoded paths**. As long as you open notebooks from the `notebooks/` directory, paths resolve automatically.
 
 ---
 
-## Usage Guide
+## Notebooks in Detail
 
-### Analyze Batsman Performance
-```python
-# Notebook: notebooks/batsman_analysis.ipynb
-# Generates: Batsman profiles, metrics, similarity matrices
-```
+### 01 — Data Processing
+Merges `ballbyball.csv` + `matches.csv` + `players.csv` + `ground.csv` into a single clean ball-by-ball dataset. Corrects pre-delivery running totals. Drops null rows in analytical columns.
 
-### Analyze Bowler Effectiveness
-```python
-# Notebook: notebooks/core_bowling_analysis.ipynb
-# Generates: bowler_stats.csv, strength categorization, success index
-```
+### 02 — Data Exploration
+15 visualisations covering: delivery outcomes, pitch distributions, line×length heatmaps, shot type analysis, bowler style effectiveness, phase patterns, over-by-over run curves, innings comparison, time-of-day effects.
 
-### Train Predictive Models
-```python
-# Notebook: notebooks/predict_boundary_and_batsman_analysis_engine.ipynb
-# Creates: Trained Random Forest models, feature datasets
-```
+### 03 — Batsman Analysis
+Computes: runs, SR, average, boundary%, dot ball%, dismissal rate, performance vs each bowler style, phase averages, adaptability index, consistency index, cosine similarity matrix.
 
-### Phase-wise Performance
-```python
-# Notebook: notebooks/phase_wise_analysis.ipynb
-# Analyzes: Powerplay, Middle, Death phase performance
-```
+### 04 — Phase-wise Analysis
+Breaks down every batsman's performance into Powerplay / Middle / Death. Computes phase adaptability index. Includes radar charts and heatmaps.
 
-### Use Trained Models
-```python
-import joblib
-import pandas as pd
-from sklearn.preprocessing import StandardScaler
+### 05 — Bowling Analysis
+Computes: economy, SR, wicket%, dot ball%, boundary%. Derives a success index (30% economy + 30% dot balls + 40% wickets) normalised to 0–1. Strength zones: Elite / Strong / Average / Weak. Phase-wise economy breakdown. Bowler-vs-batsman matchup model.
 
-# Load model
-model = joblib.load('models/predict_boundary_model.joblib')
+### 06 — Predictive Models
+Trains two Random Forest classifiers:
+- **Boundary model** — predicts whether a delivery will yield 4 or 6
+- **Good ball model** — predicts whether a delivery will be restrictive (≤1 run, no boundary)
 
-# Prepare features
-features = pd.DataFrame({
-    'inningNumber': [1],
-    'oversActual': [5.2],
-    'pitchLine': [1],
-    'pitchLength': [2],
-    'shotType': [1],
-    'time_of_day': [1],
-    'Batsman_Batting_Style': [1],
-    'Bowler_Bowling_Style': [1],
-    'isDeathOver': [0],
-    'line_x_length': [2]
-})
+Features: pitch zone, shot type, player styles, match state, pressure index, phase indicators. Evaluation: ROC-AUC, 5-fold CV, confusion matrix, feature importance.
 
-# Predict
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(features)
-prediction = model.predict(X_scaled)
-probability = model.predict_proba(X_scaled)
-
-print(f"Boundary Probability: {probability[0][1]:.2%}")
-```
+### 07 — Strategy Recommendation Engine
+Functions:
+- `get_batsman_threat(name, phase)` — threat level and aggressiveness score
+- `recommend_bowling_strategy(batsman, phase, bowler_style)` — pitch line, length, tactical plan
+- `suggest_field_placement(...)` — 9 fielder positions with LHB adjustment
+- `full_matchup_report(...)` — combines all three + historical matchup data
+- `find_best_bowler_vs(batsman, squad)` — ranks squad bowlers by success index
 
 ---
 
-## Core Metrics
+## Key Metrics
 
-### Batsman Metrics
-- **Strike Rate**: Runs per 100 balls
-- **Boundary %**: Percentage of deliveries with 4/6
-- **Dismissal Rate**: Balls faced per wicket
-- **Adaptability Index**: Consistency across opponents (0-1 scale)
-- **Phase Performance**: Metrics per match phase
+### Batsman
+| Metric | Description |
+|--------|-------------|
+| Strike Rate | Runs per 100 balls |
+| Average | Runs per dismissal |
+| Boundary % | Boundaries per 100 balls |
+| Dot Ball % | Scoreless deliveries per 100 balls |
+| Adaptability Index | Consistency across bowling styles (0=rigid, 1=adaptable) |
+| Consistency Index | Average / std_dev of run output |
 
-### Bowler Metrics
-- **Economy Rate**: Runs conceded per over
-- **Strike Rate**: Balls per wicket
-- **Wicket %**: Wickets per delivery
-- **Dot Ball %**: Deliveries with 0 runs
-- **Boundary %**: Deliveries with 4/6
-- **Success Index**: Composite metric (30% economy + 30% dot balls + 40% wickets)
-- **Strength Zone**: Elite/Strong/Average/Weak categorization
+### Bowler
+| Metric | Description |
+|--------|-------------|
+| Economy Rate | Runs per over |
+| Bowling SR | Balls per wicket |
+| Dot Ball % | Scoreless deliveries per 100 balls |
+| Boundary % | Boundaries conceded per 100 balls |
+| Wicket % | Wickets per 100 balls |
+| Success Index | 30% economy + 30% dot balls + 40% wickets (0–1 normalised) |
 
-### Model Performance
-- **Accuracy**: Prediction correctness percentage
-- **ROC-AUC**: Model discrimination ability (0-1 scale)
-- **Precision/Recall**: Per-class performance metrics
-- **Confusion Matrix**: Prediction breakdown
+### Models
+| Model | Target | ROC-AUC Target |
+|-------|--------|---------------|
+| Boundary Prediction | isBoundary | ~0.70+ |
+| Good Ball Prediction | isGoodBall | ~0.75+ |
 
 ---
 
 ## Data Flow
 
 ```
-Raw Data (data/csv/)
-    ↓
-Data Exploration & Processing
-    ↓
-final_processed_data.csv (Main dataset)
-    ↓
-    ├─→ Batsman Analysis → batsman_profiles.csv
-    ├─→ Bowling Analysis → bowler_stats.csv
-    ├─→ Phase Analysis → phase_sr.csv
-    ├─→ Model Training → models/ & feature datasets/
-    └─→ Dashboard & Visualizations
+data/csv/*.csv
+    ↓  01_data_processing
+data/final_processed_data.csv
+    ├──→ 03_batsman_analysis  →  batsman_profiles.csv, batsman_similarity.csv
+    ├──→ 04_phase_wise        →  phase_sr.csv
+    ├──→ 05_bowling           →  bowler_stats.csv, bowling_success_model.csv
+    ├──→ 06_predictive_models →  models/*.joblib
+    └──→ 07_strategy          →  recommendations + visualisations
+         (reads all above outputs)
 ```
-
----
-
-## Key Analyses
-
-### 1. Batsman Adaptability
-Measures how effectively a batsman adjusts to different bowling styles and match situations.
-
-**Calculation**:
-- Analyzes performance against different bowler types
-- Computes variance in strike rate
-- Generates adaptability index (1 / (1 + std_deviation))
-
-### 2. Phase-wise Performance
-Evaluates performance across three match phases:
-- **Powerplay (Overs 1-6)**: Aggressive boundary-hitting focus
-- **Middle (Overs 7-15)**: Building partnerships, maintaining momentum
-- **Death (Overs 16-20)**: Maximum run rate with wicket preservation
-
-**Metrics**: Strike rate, boundary %, dot ball %, adaptability score per phase
-
-### 3. Bowler Success Index
-Weighted composite metric combining:
-```
-Success Index = (100 - Economy) × 0.3 + Dot Ball % × 0.3 + Wicket % × 0.4
-```
-This balances economy rate, restrictive bowling, and wicket-taking ability.
-
-### 4. Field Placement Strategy
-Recommends fielder positions based on:
-- **Match Phase**: Powerplay formations vs Death overs
-- **Pitch Conditions**: Short vs Full deliveries
-- **Bowler Type**: Fast bowlers vs Spinners
-- **Batsman Profile**: Left-handed vs Right-handed preferences
-
----
-
-## Model Training Pipeline
-
-### Training Process
-1. Load preprocessed data
-2. Feature engineering (9-10 features per model)
-3. Train-test split (80-20 with stratification)
-4. StandardScaler normalization
-5. RandomForestClassifier with balanced class weights
-6. Evaluate: Accuracy, ROC-AUC, Classification Report
-7. Export model to joblib format
-
-### Features Used
-- `inningNumber`, `oversActual`: Temporal context
-- `pitchLine`, `pitchLength`: Pitch characteristics
-- `shotType`: Batting approach
-- `time_of_day`: Dusk/Night/Day conditions
-- `Batsman_Batting_Style`, `Bowler_Bowling_Style`: Player attributes
-- `isDeathOver`: Phase indicator (overs 16+)
-- `line_x_length`: Interaction feature
-
-### Hyperparameters
-- Estimators: 200
-- Random State: 42 (reproducibility)
-- Class Weight: Balanced (handles imbalance)
-- Test Size: 20%
-
----
-
-## File Organization
-
-### To Understand Project Flow:
-1. Start: `README.md` (this file)
-2. Reference: `Cricket strategy Recommendation System.pdf`
-3. Explore: `notebooks/data_exploration_and_processing.ipynb`
-
-### To Analyze Batsmen:
-1. `notebooks/core_batsman_analysis.ipynb`
-2. `notebooks/phase_wise_analysis.ipynb`
-3. Output: `data/batsman_profiles.csv`
-
-### To Analyze Bowlers:
-1. `notebooks/core_bowling_analysis.ipynb`
-2. Output: `data/bowler_stats.csv`
-
-### To Build Predictions:
-1. `notebooks/predict_boundary_and_batsman_analysis_engine.ipynb`
-2. Models: `models/*.joblib`
-3. Features: `model_feature_engineered_datasets/*.csv`
-
-### To Explore Data:
-1. Raw: `data/csv/*.csv`
-2. Processed: `data/final_processed_data.csv`
-3. Aggregated: `data/batsman_*.csv`, `data/bowler_*.csv`
-
----
-
-## Troubleshooting
-
-### Import Errors
-```
-Solution: pip install -r src/requirements.txt
-```
-
-### File Path Issues
-```
-Solution: Update paths in notebooks to match your system:
-Change: path = r'C:\Users\...\data\...'
-To: Your actual path
-```
-
-### Model Loading Errors
-```
-Solution: Verify all files in models/ exist
-Option: Retrain models using predict_boundary_and_batsman_analysis_engine.ipynb
-```
-
-### Feature Mismatch
-```
-Solution: Ensure feature names match model expectations
-Run feature engineering cells before predictions
-```
-
-## Performance Considerations
-
-- Dataset size: Thousands of ball-level records
-- Processing time: Full pipeline runs in 10-30 minutes
-- Model training: 5-15 minutes for 200 estimators
-- Prediction latency: <100ms per delivery on modern hardware
-
----
-
-## Project Statistics
-
-- **Total Notebooks**: 9 analysis and processing workflows
-- **Trained Models**: 5 (all Random Forest)
-- **Features Engineered**: 10+ per model
-- **Data Files**: 20+ CSV datasets
-- **Metrics Calculated**: 30+ performance indicators
 
 ---
 
 ## Dependencies
 
 ```
-pandas==1.5.3          # Data manipulation
-numpy==1.24.3          # Numerical computing
-matplotlib==3.7.1      # Visualization
-seaborn==0.12.2        # Statistical plots
-scikit-learn==1.2.2    # Machine learning
-plotly==5.15.0         # Interactive charts
-streamlit==1.28.0      # Web apps (optional)
-joblib==1.3.0          # Model persistence
+pandas>=1.5.3        # Data manipulation
+numpy>=1.24.3        # Numerical computing
+matplotlib>=3.7.1    # Static plots
+seaborn>=0.12.2      # Statistical plots
+scikit-learn>=1.2.2  # ML models
+plotly>=5.15.0       # Interactive charts
+joblib>=1.3.0        # Model persistence
 ```
 
 ---
 
-## Implementation Notes
-
-- All notebooks use `final_processed_data.csv` as the primary data source
-- Models save to `models/` in joblib format for cross-platform compatibility
-- Feature datasets export to `model_feature_engineered_datasets/` for reference
-- Statistical calculations use scikit-learn's preprocessing and metrics modules
-- Visualizations leverage Plotly for interactive exploration
-
----
-
-## Citation & Attribution
-
-Cricket data sourced from comprehensive match records covering multiple seasons and tournaments. Player statistics aggregated from ball-by-ball delivery data with comprehensive validation.
-
----
-
-## Contact & Support
-
-For questions or improvements:
-1. Review relevant notebook comments
-2. Check data path configurations
-3. Verify dependency installation
-4. Test individual components before full pipeline execution
-
----
-
-**Last Updated**: March 2026
-
-**Project Status**:
-- ✅ Data processing: Complete
-- ✅ Batsman analysis engine: Complete
-- ✅ Bowler analysis engine: Complete
-- ✅ Predictive models: Trained and available
-- ✅ Strategic recommendations: Implemented
-- ✅ Dashboard: Available
-
-**Scope**: Data Science & Machine Learning system for cricket performance analytics and strategic recommendations.
+**Last Updated**: March 2026  
+**Status**: Complete end-to-end pipeline

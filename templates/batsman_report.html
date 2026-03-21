@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}{{ name }} — Batsman Report{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <a href="/" class="back-link">← Home</a>
+  <h1>🏏 {{ name }}</h1>
+  <span class="badge">{{ stats.batting_style }}</span>
+  <span class="badge badge-secondary">{{ stats.playing_role }}</span>
+</div>
+
+<!-- Overall Stats Strip -->
+<div class="stats-strip">
+  <div class="stat-box"><span class="stat-val">{{ stats.total_runs }}</span><span class="stat-lbl">Runs</span></div>
+  <div class="stat-box"><span class="stat-val">{{ stats.balls_faced }}</span><span class="stat-lbl">Balls</span></div>
+  <div class="stat-box"><span class="stat-val">{{ stats.strike_rate }}</span><span class="stat-lbl">Strike Rate</span></div>
+  <div class="stat-box"><span class="stat-val">{{ stats.average if stats.average else 'N/A' }}</span><span class="stat-lbl">Average</span></div>
+  <div class="stat-box"><span class="stat-val">{{ stats.boundary_pct }}%</span><span class="stat-lbl">Boundary %</span></div>
+  <div class="stat-box"><span class="stat-val">{{ stats.dot_ball_pct }}%</span><span class="stat-lbl">Dot Ball %</span></div>
+  <div class="stat-box"><span class="stat-val">{{ stats.matches }}</span><span class="stat-lbl">Matches</span></div>
+</div>
+
+<!-- Strength & Weakness Summary -->
+<div class="two-col">
+  <div class="card card-green">
+    <h3>✅ Top Strength Zones</h3>
+    {% for z in sz %}
+    <div class="zone-row">
+      <span class="zone-label">{{ z.pitchLine }} × {{ z.pitchLength }}</span>
+      <span class="zone-stat">SR {{ z.strike_rate }} | Bdry {{ z.boundary_pct }}%</span>
+      <div class="score-bar"><div class="score-fill green" style="width:{{ (z.strength_score * 100)|int }}%"></div></div>
+    </div>
+    {% else %}<p class="muted">Not enough data.</p>{% endfor %}
+  </div>
+  <div class="card card-red">
+    <h3>⚠️ Top Weakness Zones</h3>
+    {% for z in wz %}
+    <div class="zone-row">
+      <span class="zone-label">{{ z.pitchLine }} × {{ z.pitchLength }}</span>
+      <span class="zone-stat">SR {{ z.strike_rate }} | Wkt {{ z.wicket_pct }}%</span>
+      <div class="score-bar"><div class="score-fill red" style="width:{{ (z.weakness_score * 100)|int }}%"></div></div>
+    </div>
+    {% else %}<p class="muted">Not enough data.</p>{% endfor %}
+  </div>
+</div>
+
+<!-- Charts Grid -->
+<div class="charts-grid">
+  {% if charts.strength_heat %}
+  <div class="chart-card">
+    <div id="strength_heat"></div>
+  </div>
+  {% endif %}
+  {% if charts.weakness_heat %}
+  <div class="chart-card">
+    <div id="weakness_heat"></div>
+  </div>
+  {% endif %}
+  {% if charts.phase %}
+  <div class="chart-card wide">
+    <div id="phase_chart"></div>
+  </div>
+  {% endif %}
+  {% if charts.shot_risk %}
+  <div class="chart-card">
+    <div id="shot_risk"></div>
+  </div>
+  {% endif %}
+  {% if charts.vs_style %}
+  <div class="chart-card">
+    <div id="vs_style"></div>
+  </div>
+  {% endif %}
+  {% if charts.chase_vs_set %}
+  <div class="chart-card">
+    <div id="chase_vs_set"></div>
+  </div>
+  {% endif %}
+  {% if charts.pressure %}
+  <div class="chart-card">
+    <div id="pressure"></div>
+  </div>
+  {% endif %}
+  {% if charts.ground %}
+  <div class="chart-card wide">
+    <div id="ground"></div>
+  </div>
+  {% endif %}
+  {% if charts.h2h %}
+  <div class="chart-card wide">
+    <div id="h2h"></div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+var charts = {{ charts | tojson }};
+var mapping = {
+  'strength_heat': 'strength_heat',
+  'weakness_heat': 'weakness_heat',
+  'phase_chart'  : 'phase',
+  'shot_risk'    : 'shot_risk',
+  'vs_style'     : 'vs_style',
+  'chase_vs_set' : 'chase_vs_set',
+  'pressure'     : 'pressure',
+  'ground'       : 'ground',
+  'h2h'          : 'h2h'
+};
+for (var divId in mapping) {
+  var key = mapping[divId];
+  if (charts[key]) queueChart(divId, charts[key]);
+}
+</script>
+{% endblock %}

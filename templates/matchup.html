@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Matchup Analysis{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <a href="/" class="back-link">← Home</a>
+  <h1>⚔️ Matchup Analysis</h1>
+  <p class="subtitle">Bowling strategy, field placement and head-to-head intelligence.</p>
+</div>
+
+<div class="card form-card">
+  <form method="GET" action="/matchup">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Batsman (Full Name)</label>
+        <input list="batsman-list" name="bat" class="search-input"
+               value="{{ bat_name }}" placeholder="e.g. Virat Kohli" autocomplete="off">
+        <datalist id="batsman-list">
+          {% for name in batsmen %}<option value="{{ name }}">{% endfor %}
+        </datalist>
+      </div>
+      <div class="form-group">
+        <label>Bowling Style</label>
+        <select name="bowl_style" class="search-input">
+          {% set styles = ['right-arm fast','right-arm fast-medium','right-arm medium-fast',
+            'right-arm medium','right-arm offbreak','legbreak','legbreak googly',
+            'left-arm fast','left-arm fast-medium','left-arm medium-fast',
+            'left-arm medium','slow left-arm orthodox','left-arm wrist-spin'] %}
+          {% for s in styles %}
+            <option value="{{ s }}" {% if s == bowl_style %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Match Phase</label>
+        <select name="phase" class="search-input">
+          {% for p in ['Powerplay','Middle','Death'] %}
+            <option value="{{ p }}" {% if p == phase %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group form-submit">
+        <button type="submit" class="btn btn-primary">Generate →</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+{% if report %}
+
+<div class="card" style="margin-bottom:1rem;border-left:4px solid var(--accent);">
+  <p style="font-size:0.85rem;color:var(--muted);margin:0;">
+    🎯 <strong>Threat &amp; History</strong> are batsman+phase specific — same regardless of bowling style. &nbsp;|&nbsp;
+    🏏 <strong>Bowling Plan &amp; Field</strong> change with every bowling style you select.
+  </p>
+</div>
+
+<div class="matchup-grid">
+
+  {% for section_key, icon, extra_class, note in [
+      ('THREAT ASSESSMENT',  '🎯', 'card-threat', 'batsman + phase'),
+      ('BOWLING PLAN',       '🏏', 'card-blue',   'changes with style ↻'),
+      ('FIELD PLACEMENT',    '🧩', 'card-green',  'changes with style ↻'),
+      ('HISTORICAL MATCHUP', '📊', 'card-purple', 'top bowlers vs this batsman')
+  ] %}
+    {% set content_data = report.get(section_key, {}) %}
+    <div class="card {{ extra_class }}{% if section_key == 'THREAT ASSESSMENT' %}-{{ content_data.get('Threat Level','').replace(' ','_')|lower }}{% endif %}">
+      <h3>{{ icon }} {{ section_key }} <span class="section-note">{{ note }}</span></h3>
+      <div class="report-grid">
+        {% if content_data is mapping %}
+          {% for k, v in content_data.items() %}
+          <div class="report-row">
+            <span class="report-key">{{ k }}</span>
+            <span class="report-val {% if k == 'Threat Level' %}
+              {% if 'High' in v %}threat-high{% elif 'Medium' in v %}threat-medium{% else %}threat-low{% endif %}
+            {% endif %}">{{ v }}</span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="muted">{{ content_data }}</p>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+
+</div>
+
+{% if bb_chart %}
+<div class="card" style="margin-top:1.25rem;">
+  <h3>📈 Most Effective Bowlers vs {{ bat_name }}</h3>
+  <div id="bb_chart"></div>
+</div>
+{% endif %}
+
+{% elif bat_name %}
+<div class="card card-red">
+  <p>⚠️ No data for <strong>{{ bat_name }}</strong>. Check spelling and try again.</p>
+</div>
+{% endif %}
+
+<script>
+{% if bb_chart %}
+queueChart('bb_chart', {{ bb_chart | tojson }});
+{% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Global Insights{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <a href="/" class="back-link">← Home</a>
+  <h1>📊 Global Insights</h1>
+  <p class="subtitle">Dataset-wide patterns across {{ '{:,}'.format(33029) }} deliveries, 149 matches, 462 batsmen, 318 bowlers.</p>
+</div>
+
+<div class="charts-grid">
+
+  <div class="chart-card">
+    <div id="outcomes"></div>
+  </div>
+
+  <div class="chart-card wide">
+    <div id="phase_compare"></div>
+  </div>
+
+  <div class="chart-card">
+    <div id="zone_run"></div>
+  </div>
+
+  <div class="chart-card">
+    <div id="zone_wkt"></div>
+  </div>
+
+  <div class="chart-card wide">
+    <div id="bowler_scatter"></div>
+  </div>
+
+  <div class="chart-card wide">
+    <div id="over_trend"></div>
+  </div>
+
+</div>
+
+<script>
+var charts = {{ charts | tojson }};
+var ids = ['outcomes','phase_compare','zone_run','zone_wkt','bowler_scatter','over_trend'];
+ids.forEach(function(id) {
+  if (charts[id]) queueChart(id, charts[id]);
+});
+</script>
+{% endblock %}

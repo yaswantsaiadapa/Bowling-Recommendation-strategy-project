@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Cricket Analytics{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <!-- Suppress favicon 404 -->
+  <link rel="icon" href="data:,">
+  <script>
+  /* Chart queue — fills up while page parses, drains after Plotly loads */
+  var _chartQueue = [];
+
+  function queueChart(divId, figData) {
+    _chartQueue.push([divId, figData]);
+  }
+
+  function renderChart(divId, figData) {
+    if (!figData || !divId) return;
+    var el = document.getElementById(divId);
+    if (!el) return;
+    Plotly.newPlot(el, figData.data, figData.layout,
+                   {responsive: true, displayModeBar: false});
+  }
+
+  function drainQueue() {
+    _chartQueue.forEach(function(item) { renderChart(item[0], item[1]); });
+    _chartQueue = [];
+  }
+  </script>
+</head>
+<body>
+<nav class="navbar">
+  <a class="brand" href="/">🏏 Cricket Analytics</a>
+  <div class="nav-links">
+    <a href="/">Home</a>
+    <a href="/insights">Global Insights</a>
+    <a href="/matchup">Matchup</a>
+  </div>
+</nav>
+<main class="container">
+  {% block content %}{% endblock %}
+</main>
+<footer><p>Cricket Strategy Recommendation System &mdash; Data Science Project</p></footer>
+
+<!-- Plotly at end of body so it doesn't block rendering.
+     onload fires AFTER this script tag executes, so Plotly is guaranteed ready. -->
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<script>
+  // Plotly is now loaded — drain the queue immediately
+  drainQueue();
+</script>
+</body>
+</html>

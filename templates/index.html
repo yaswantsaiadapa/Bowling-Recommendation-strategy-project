@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Cricket Analytics — Home{% endblock %}
+{% block content %}
+<div class="hero">
+  <h1>🏏 Cricket Strategy Recommendation System</h1>
+  <p>Pre-game intelligence, strength &amp; weakness analysis, and data-driven strategy recommendations.</p>
+</div>
+
+<div class="search-grid">
+  <!-- Batsman Search -->
+  <div class="card">
+    <h2>🏏 Batsman Report</h2>
+    <p>Strength zones, weakness zones, shot risk profile, phase analysis, and more.</p>
+    <form action="" onsubmit="goBatsman(event)">
+      <input list="batsman-list" id="batsman-input" class="search-input"
+             placeholder="Type batsman full name..." autocomplete="off">
+      <datalist id="batsman-list">
+        {% for name in batsmen %}<option value="{{ name }}">{% endfor %}
+      </datalist>
+      <button type="submit" class="btn btn-primary">View Report →</button>
+    </form>
+  </div>
+
+  <!-- Bowler Search -->
+  <div class="card">
+    <h2>🎯 Bowler Report</h2>
+    <p>Strength zones, economy trend, wicket profile, LHB/RHB analysis, and more.</p>
+    <form action="" onsubmit="goBowler(event)">
+      <input list="bowler-list" id="bowler-input" class="search-input"
+             placeholder="Type bowler full name..." autocomplete="off">
+      <datalist id="bowler-list">
+        {% for name in bowlers %}<option value="{{ name }}">{% endfor %}
+      </datalist>
+      <button type="submit" class="btn btn-secondary">View Report →</button>
+    </form>
+  </div>
+
+  <!-- Matchup -->
+  <div class="card">
+    <h2>⚔️ Matchup Analysis</h2>
+    <p>Head-to-head: get bowling strategy, field placement, and historical matchup data.</p>
+    <a href="/matchup" class="btn btn-accent">Go to Matchup →</a>
+  </div>
+
+  <!-- Insights -->
+  <div class="card">
+    <h2>📊 Global Insights</h2>
+    <p>Dataset-wide patterns: over trends, pitch zones, phase comparisons, bowler scatter.</p>
+    <a href="/insights" class="btn btn-dark">View Insights →</a>
+  </div>
+</div>
+
+<script>
+function goBatsman(e) {
+  e.preventDefault();
+  var v = document.getElementById('batsman-input').value.trim();
+  if (v) window.location.href = '/batsman/' + encodeURIComponent(v);
+}
+function goBowler(e) {
+  e.preventDefault();
+  var v = document.getElementById('bowler-input').value.trim();
+  if (v) window.location.href = '/bowler/' + encodeURIComponent(v);
+}
+</script>
+{% endblock %}

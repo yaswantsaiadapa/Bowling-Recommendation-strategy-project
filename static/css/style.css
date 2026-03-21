@@ -1,0 +1,289 @@
+/* =====================================================================
+   Cricket Analytics — style.css
+   ===================================================================== */
+
+/* ── Variables ─────────────────────────────────────────────────────── */
+:root {
+  --bg:          #0f1117;
+  --surface:     #1a1d2e;
+  --surface2:    #232640;
+  --border:      #2e3250;
+  --accent:      #4f8ef7;
+  --accent2:     #7c5cbf;
+  --green:       #27ae60;
+  --green-light: #d5f5e3;
+  --red:         #e74c3c;
+  --red-light:   #fde8e6;
+  --orange:      #e67e22;
+  --text:        #e8eaf6;
+  --muted:       #8891b2;
+  --radius:      10px;
+  --shadow:      0 4px 24px rgba(0,0,0,0.4);
+}
+
+/* ── Reset & Base ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.6;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Navbar ────────────────────────────────────────────────────────── */
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  height: 56px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.brand {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+.brand:hover { text-decoration: none; color: var(--accent); }
+.nav-links { display: flex; gap: 1.5rem; }
+.nav-links a { font-size: 0.9rem; color: var(--muted); font-weight: 500; }
+.nav-links a:hover { color: var(--text); text-decoration: none; }
+
+/* ── Container ─────────────────────────────────────────────────────── */
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  flex: 1;
+}
+
+/* ── Hero ──────────────────────────────────────────────────────────── */
+.hero {
+  text-align: center;
+  padding: 2.5rem 1rem 1.5rem;
+}
+.hero h1 { font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem; }
+.hero p  { color: var(--muted); font-size: 1.05rem; }
+
+/* ── Search Grid (Home) ────────────────────────────────────────────── */
+.search-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.4rem 1.5rem;
+  box-shadow: var(--shadow);
+}
+.card h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.4rem; }
+.card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--muted); }
+.card p  { color: var(--muted); font-size: 0.88rem; margin-bottom: 1rem; }
+
+.card-green { border-left: 4px solid var(--green); }
+.card-red   { border-left: 4px solid var(--red); }
+.card-blue  { border-left: 4px solid var(--accent); }
+.card-purple{ border-left: 4px solid var(--accent2); }
+
+.card-threat-high_threat   { border-left: 4px solid var(--red); }
+.card-threat-medium_threat { border-left: 4px solid var(--orange); }
+.card-threat-low_threat    { border-left: 4px solid var(--green); }
+
+/* ── Buttons ───────────────────────────────────────────────────────── */
+.btn {
+  display: inline-block;
+  padding: 0.55rem 1.2rem;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s;
+}
+.btn:hover { opacity: 0.88; text-decoration: none; }
+.btn-primary   { background: var(--accent);  color: #fff; }
+.btn-secondary { background: var(--green);   color: #fff; }
+.btn-accent    { background: var(--accent2); color: #fff; }
+.btn-dark      { background: var(--surface2);color: var(--text); border: 1px solid var(--border); }
+
+/* ── Search Input ──────────────────────────────────────────────────── */
+.search-input {
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+  outline: none;
+}
+.search-input:focus { border-color: var(--accent); }
+
+/* ── Page Header ───────────────────────────────────────────────────── */
+.page-header {
+  margin-bottom: 1.5rem;
+}
+.page-header h1 { font-size: 1.7rem; font-weight: 800; display: inline; margin-right: 0.6rem; }
+.page-header .subtitle { color: var(--muted); font-size: 0.9rem; margin-top: 0.25rem; }
+.back-link { display: block; color: var(--muted); font-size: 0.85rem; margin-bottom: 0.5rem; }
+.back-link:hover { color: var(--text); }
+
+/* ── Badge ─────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-right: 0.3rem;
+  vertical-align: middle;
+}
+.badge-secondary { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+
+/* ── Stats Strip ───────────────────────────────────────────────────── */
+.stats-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.stat-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1.1rem;
+  text-align: center;
+  min-width: 90px;
+  flex: 1;
+}
+.stat-val { display: block; font-size: 1.4rem; font-weight: 800; color: var(--accent); }
+.stat-lbl { display: block; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+/* ── Two Column Layout ─────────────────────────────────────────────── */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ── Zone Rows (Strength / Weakness) ──────────────────────────────── */
+.zone-row { margin-bottom: 0.65rem; }
+.zone-label { font-size: 0.82rem; font-weight: 600; display: block; }
+.zone-stat  { font-size: 0.78rem; color: var(--muted); }
+.score-bar  { height: 5px; background: var(--surface2); border-radius: 3px; margin-top: 4px; }
+.score-fill { height: 100%; border-radius: 3px; }
+.score-fill.green { background: var(--green); }
+.score-fill.red   { background: var(--red); }
+
+/* ── Charts Grid ───────────────────────────────────────────────────── */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.chart-card.wide { grid-column: span 2; }
+@media (max-width: 800px) {
+  .charts-grid { grid-template-columns: 1fr; }
+  .chart-card.wide { grid-column: span 1; }
+}
+
+/* ── Form Card (Matchup) ───────────────────────────────────────────── */
+.form-card { margin-bottom: 1.5rem; }
+.form-grid {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr 1fr;
+  gap: 1rem;
+  align-items: end;
+}
+@media (max-width: 800px) { .form-grid { grid-template-columns: 1fr 1fr; } }
+.form-group label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.form-submit { display: flex; align-items: flex-end; }
+
+/* ── Report Sections (Matchup) ─────────────────────────────────────── */
+.report-section { margin-bottom: 1rem; }
+.report-section h3 { font-size: 0.95rem; margin-bottom: 0.75rem; }
+.report-grid { display: grid; gap: 0.35rem; }
+.report-row  { display: flex; justify-content: space-between; align-items: center;
+               padding: 0.3rem 0; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+.report-row:last-child { border-bottom: none; }
+.report-key  { color: var(--muted); font-size: 0.82rem; }
+.report-val  { font-weight: 600; text-align: right; max-width: 65%; }
+.threat-high   { color: var(--red);    background: rgba(231,76,60,0.12); padding: 2px 8px; border-radius: 4px; }
+.threat-medium { color: var(--orange); background: rgba(230,126,34,0.12); padding: 2px 8px; border-radius: 4px; }
+.threat-low    { color: var(--green);  background: rgba(39,174,96,0.12);  padding: 2px 8px; border-radius: 4px; }
+
+/* ── Muted text ────────────────────────────────────────────────────── */
+.muted { color: var(--muted); font-size: 0.85rem; }
+
+/* ── Error Page ────────────────────────────────────────────────────── */
+.error-page {
+  text-align: center;
+  padding: 4rem 1rem;
+}
+.error-page h1 { font-size: 5rem; font-weight: 900; color: var(--red); }
+.error-page p  { color: var(--muted); margin: 1rem 0 2rem; font-size: 1rem; }
+
+/* ── Footer ────────────────────────────────────────────────────────── */
+footer {
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* ── Plotly chart theming ──────────────────────────────────────────── */
+.js-plotly-plot .plotly .modebar { display: none !important; }
+
+/* ── Matchup grid ──────────────────────────────────────────────────── */
+.matchup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 800px) { .matchup-grid { grid-template-columns: 1fr; } }
+
+/* ── Section note (subtle label inside card heading) ──────────────── */
+.section-note {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--muted);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+}

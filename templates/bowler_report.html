@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ name }} — Bowler Report{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <a href="/" class="back-link">← Home</a>
+  <h1>🎯 {{ name }}</h1>
+  <span class="badge">{{ stats.bowling_style }}</span>
+  <span class="badge badge-secondary">{{ stats.playing_role }}</span>
+</div>
+
+<div class="stats-strip">
+  <div class="stat-box"><span class="stat-val">{{ stats.balls_bowled }}</span><span class="stat-lbl">Balls</span></div>
+  <div class="stat-box"><span class="stat-val">{{ stats.total_wickets }}</span><span class="stat-lbl">Wickets</span></div>
+  <div class="stat-box"><span class="stat-val">{{ stats.economy_rate }}</span><span class="stat-lbl">Economy</span></div>
+  <div class="stat-box"><span class="stat-val">{{ stats.bowling_sr if stats.bowling_sr else 'N/A' }}</span><span class="stat-lbl">Bowl SR</span></div>
+  <div class="stat-box"><span class="stat-val">{{ stats.dot_ball_pct }}%</span><span class="stat-lbl">Dot Ball %</span></div>
+  <div class="stat-box"><span class="stat-val">{{ stats.wicket_pct }}%</span><span class="stat-lbl">Wicket %</span></div>
+  <div class="stat-box"><span class="stat-val">{{ stats.matches }}</span><span class="stat-lbl">Matches</span></div>
+</div>
+
+<div class="two-col">
+  <div class="card card-green">
+    <h3>✅ Top Strength Zones</h3>
+    {% for z in sz %}
+    <div class="zone-row">
+      <span class="zone-label">{{ z.pitchLine }} × {{ z.pitchLength }}</span>
+      <span class="zone-stat">Econ {{ z.economy }} | Wkt {{ z.wicket_pct }}%</span>
+      <div class="score-bar"><div class="score-fill green" style="width:{{ (z.success_score * 100)|int }}%"></div></div>
+    </div>
+    {% else %}<p class="muted">Not enough data.</p>{% endfor %}
+  </div>
+  <div class="card card-red">
+    <h3>⚠️ Weakness Zones (Leaks Runs)</h3>
+    {% for z in wz %}
+    <div class="zone-row">
+      <span class="zone-label">{{ z.pitchLine }} × {{ z.pitchLength }}</span>
+      <span class="zone-stat">Econ {{ z.economy }} | Bdry {{ z.boundary_pct }}%</span>
+      <div class="score-bar"><div class="score-fill red" style="width:{{ (z.weakness_score * 100)|int }}%"></div></div>
+    </div>
+    {% else %}<p class="muted">Not enough data.</p>{% endfor %}
+  </div>
+</div>
+
+<div class="charts-grid">
+  {% if charts.strength_heat %}<div class="chart-card"><div id="strength_heat"></div></div>{% endif %}
+  {% if charts.weakness_heat %}<div class="chart-card"><div id="weakness_heat"></div></div>{% endif %}
+  {% if charts.phase %}<div class="chart-card wide"><div id="phase_chart"></div></div>{% endif %}
+  {% if charts.econ_trend %}<div class="chart-card"><div id="econ_trend"></div></div>{% endif %}
+  {% if charts.vs_style %}<div class="chart-card"><div id="vs_style"></div></div>{% endif %}
+  {% if charts.wicket_zones %}<div class="chart-card wide"><div id="wicket_zones"></div></div>{% endif %}
+  {% if charts.targets %}<div class="chart-card wide"><div id="targets"></div></div>{% endif %}
+</div>
+
+<script>
+var charts = {{ charts | tojson }};
+var mapping = {
+  'strength_heat': 'strength_heat',
+  'weakness_heat': 'weakness_heat',
+  'phase_chart'  : 'phase',
+  'econ_trend'   : 'econ_trend',
+  'vs_style'     : 'vs_style',
+  'wicket_zones' : 'wicket_zones',
+  'targets'      : 'targets'
+};
+for (var divId in mapping) {
+  var key = mapping[divId];
+  if (charts[key]) queueChart(divId, charts[key]);
+}
+</script>
+{% endblock %}
