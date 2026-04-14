@@ -4,33 +4,63 @@
 
 <div class="page-header">
   <a href="/" class="back-link">← Home</a>
-  <h1>📊 Global Insights</h1>
-  <p class="subtitle">Dataset-wide patterns across {{ '{:,}'.format(33029) }} deliveries, 149 matches, 462 batsmen, 318 bowlers.</p>
+  <h1>📊 Global Insights Dashboard</h1>
+  <p class="subtitle">Tournament-level patterns across the ICC T20 World Cup dataset — delivery outcomes, phase dynamics, pitch zone exploitation, bowler effectiveness, and over-by-over momentum shifts.</p>
 </div>
 
 <div class="charts-grid">
 
   <div class="chart-card">
+    <div class="chart-desc">
+      <h4>🎯 Delivery Outcome Distribution</h4>
+      <p>How every ball in the tournament breaks down — dots, singles/doubles, boundaries, and wickets. This reveals the overall rhythm of T20 cricket: the balance between run-scoring opportunity and risk.</p>
+      <span class="insight-tag">Core dataset overview</span>
+    </div>
     <div id="outcomes"></div>
   </div>
 
   <div class="chart-card wide">
+    <div class="chart-desc">
+      <h4>⚡ Phase Comparison — Powerplay vs Middle vs Death</h4>
+      <p>Compares average runs per ball, boundary %, wicket %, and dot-ball % across the three match phases. Reveals how batting aggression escalates in death overs while powerplay offers the best dot-ball efficiency for bowlers.</p>
+      <span class="insight-tag">Phase-level strategy insight</span>
+    </div>
     <div id="phase_compare"></div>
   </div>
 
   <div class="chart-card">
+    <div class="chart-desc">
+      <h4>🔥 Pitch Zone Heatmap — Average Runs</h4>
+      <p>Which pitch line × length combinations concede the most runs? Short & wide deliveries consistently leak runs, while good-length on off-stump is the most economical. Use this to plan bowling line-and-length.</p>
+      <span class="insight-tag">Bowling plan foundation</span>
+    </div>
     <div id="zone_run"></div>
   </div>
 
   <div class="chart-card">
+    <div class="chart-desc">
+      <h4>💀 Pitch Zone Heatmap — Wicket %</h4>
+      <p>Which zones yield the most wickets? Good-length on or just outside off-stump is the classic wicket-taking corridor. Compare with the runs heatmap to find zones that are both economical and lethal.</p>
+      <span class="insight-tag">Wicket-taking zones</span>
+    </div>
     <div id="zone_wkt"></div>
   </div>
 
   <div class="chart-card wide">
+    <div class="chart-desc">
+      <h4>🎳 Bowler Effectiveness Scatter — Dot Ball % vs Wicket %</h4>
+      <p>Each bubble is a bowler (min 50 balls). X-axis = dot-ball efficiency, Y-axis = wicket-taking ability, bubble size = total deliveries, color = composite success index. Top-right quadrant = the most effective bowlers in the tournament.</p>
+      <span class="insight-tag">Bowler ranking & scouting</span>
+    </div>
     <div id="bowler_scatter"></div>
   </div>
 
   <div class="chart-card wide">
+    <div class="chart-desc">
+      <h4>📈 Over-by-Over Trends — Runs & Boundary %</h4>
+      <p>How run rate and boundary percentage fluctuate across all 20 overs. Green zone = Powerplay (overs 1–6), pink zone = Death (overs 16–20). This shows the momentum signature of T20 cricket — the U-shaped aggression curve.</p>
+      <span class="insight-tag">Match flow analysis</span>
+    </div>
     <div id="over_trend"></div>
   </div>
 

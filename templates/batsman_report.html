@@ -24,6 +24,7 @@
 <div class="two-col">
   <div class="card card-green">
     <h3>✅ Top Strength Zones</h3>
+    <p>Pitch line × length combinations where this batsman scores freely — high strike rate and boundary percentage indicate reliable scoring areas.</p>
     {% for z in sz %}
     <div class="zone-row">
       <span class="zone-label">{{ z.pitchLine }} × {{ z.pitchLength }}</span>
@@ -34,6 +35,7 @@
   </div>
   <div class="card card-red">
     <h3>⚠️ Top Weakness Zones</h3>
+    <p>Zones where this batsman is most vulnerable — low strike rate combined with high wicket percentage. Bowl here to create pressure and force mistakes.</p>
     {% for z in wz %}
     <div class="zone-row">
       <span class="zone-label">{{ z.pitchLine }} × {{ z.pitchLength }}</span>
@@ -48,46 +50,82 @@
 <div class="charts-grid">
   {% if charts.strength_heat %}
   <div class="chart-card">
+    <div class="chart-desc">
+      <h4>🟢 Strength Zone Heatmap</h4>
+      <p>A pitch grid showing where this batsman dominates. Darker green = higher strength score (a composite of strike rate and boundary%). Use this to identify "no-go" zones while bowling.</p>
+    </div>
     <div id="strength_heat"></div>
   </div>
   {% endif %}
   {% if charts.weakness_heat %}
   <div class="chart-card">
+    <div class="chart-desc">
+      <h4>🔴 Weakness Zone Heatmap</h4>
+      <p>Pitch zones where the batsman struggles most. Darker red = higher vulnerability (low SR + high wicket% + high dot-ball%). These are your best areas to target.</p>
+    </div>
     <div id="weakness_heat"></div>
   </div>
   {% endif %}
   {% if charts.phase %}
   <div class="chart-card wide">
+    <div class="chart-desc">
+      <h4>⚡ Phase Breakdown — Powerplay / Middle / Death</h4>
+      <p>How this batsman performs across the three match phases. Shows strike rate, boundary%, and dot-ball% for each phase — reveals whether they're a powerplay aggressor, a middle-overs accumulator, or death-overs finisher.</p>
+    </div>
     <div id="phase_chart"></div>
   </div>
   {% endif %}
   {% if charts.shot_risk %}
   <div class="chart-card">
+    <div class="chart-desc">
+      <h4>🎲 Shot Risk–Reward Profile</h4>
+      <p>Each bubble is a shot type. X-axis = wicket risk (higher = more dismissals), Y-axis = boundary reward (higher = more boundaries). Top-left = safe & rewarding shots. Bottom-right = high-risk, low-reward shots to exploit.</p>
+    </div>
     <div id="shot_risk"></div>
   </div>
   {% endif %}
   {% if charts.vs_style %}
   <div class="chart-card">
+    <div class="chart-desc">
+      <h4>🎳 vs Bowling Style</h4>
+      <p>Strike rate against each bowling type (pace, spin, left-arm, etc.). Color indicates wicket% — red bars mean higher dismissal rate. This helps pick the right bowler type to combat this batsman.</p>
+    </div>
     <div id="vs_style"></div>
   </div>
   {% endif %}
   {% if charts.chase_vs_set %}
   <div class="chart-card">
+    <div class="chart-desc">
+      <h4>🏃 Chase vs Set Performance</h4>
+      <p>Compares batting metrics when chasing a target versus setting a total. Some batsmen thrive under chase pressure while others are better when batting first.</p>
+    </div>
     <div id="chase_vs_set"></div>
   </div>
   {% endif %}
   {% if charts.pressure %}
   <div class="chart-card">
+    <div class="chart-desc">
+      <h4>🧊 Performance Under Pressure</h4>
+      <p>Strike rate grouped by wicket-pressure bands (how many wickets have fallen). Reveals whether this batsman maintains composure when the team is in trouble or collapses under pressure.</p>
+    </div>
     <div id="pressure"></div>
   </div>
   {% endif %}
   {% if charts.ground %}
   <div class="chart-card wide">
+    <div class="chart-desc">
+      <h4>🏟️ Ground Performance</h4>
+      <p>Top 10 grounds by strike rate. Color intensity shows boundary% at each venue. Useful for venue-specific strategy — some batsmen love certain grounds due to pitch conditions or ground dimensions.</p>
+    </div>
     <div id="ground"></div>
   </div>
   {% endif %}
   {% if charts.h2h %}
   <div class="chart-card wide">
+    <div class="chart-desc">
+      <h4>⚔️ Most Effective Bowlers vs This Batsman</h4>
+      <p>The top bowlers who have been most successful against this batsman, ranked by a composite success index (economy + wicket-taking). Color shows bowling style — pick these bowlers in your playing XI.</p>
+    </div>
     <div id="h2h"></div>
   </div>
   {% endif %}

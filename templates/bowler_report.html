@@ -22,6 +22,7 @@
 <div class="two-col">
   <div class="card card-green">
     <h3>✅ Top Strength Zones</h3>
+    <p>Line × length combinations where this bowler excels — low economy and high wicket rates. These are the areas the bowler should target consistently.</p>
     {% for z in sz %}
     <div class="zone-row">
       <span class="zone-label">{{ z.pitchLine }} × {{ z.pitchLength }}</span>
@@ -32,6 +33,7 @@
   </div>
   <div class="card card-red">
     <h3>⚠️ Weakness Zones (Leaks Runs)</h3>
+    <p>Zones where this bowler is expensive — high economy and boundary percentage. Opposition batsmen will look to target these areas, so avoid bowling here.</p>
     {% for z in wz %}
     <div class="zone-row">
       <span class="zone-label">{{ z.pitchLine }} × {{ z.pitchLength }}</span>
@@ -43,13 +45,69 @@
 </div>
 
 <div class="charts-grid">
-  {% if charts.strength_heat %}<div class="chart-card"><div id="strength_heat"></div></div>{% endif %}
-  {% if charts.weakness_heat %}<div class="chart-card"><div id="weakness_heat"></div></div>{% endif %}
-  {% if charts.phase %}<div class="chart-card wide"><div id="phase_chart"></div></div>{% endif %}
-  {% if charts.econ_trend %}<div class="chart-card"><div id="econ_trend"></div></div>{% endif %}
-  {% if charts.vs_style %}<div class="chart-card"><div id="vs_style"></div></div>{% endif %}
-  {% if charts.wicket_zones %}<div class="chart-card wide"><div id="wicket_zones"></div></div>{% endif %}
-  {% if charts.targets %}<div class="chart-card wide"><div id="targets"></div></div>{% endif %}
+  {% if charts.strength_heat %}
+  <div class="chart-card">
+    <div class="chart-desc">
+      <h4>🟢 Strength Zone Heatmap</h4>
+      <p>Pitch grid showing this bowler's most effective zones. Darker green = better success score (low runs conceded + high wickets). The bowler should aim for these zones repeatedly.</p>
+    </div>
+    <div id="strength_heat"></div>
+  </div>
+  {% endif %}
+  {% if charts.weakness_heat %}
+  <div class="chart-card">
+    <div class="chart-desc">
+      <h4>🔴 Weakness Zone Heatmap</h4>
+      <p>Zones where this bowler leaks the most runs. Darker red = higher weakness score. Bowling plans should minimize deliveries in these areas, especially under pressure.</p>
+    </div>
+    <div id="weakness_heat"></div>
+  </div>
+  {% endif %}
+  {% if charts.phase %}
+  <div class="chart-card wide">
+    <div class="chart-desc">
+      <h4>⚡ Phase Performance — Powerplay / Middle / Death</h4>
+      <p>Economy, wicket%, and dot-ball% across match phases. Shows whether this bowler is a powerplay specialist, a middle-overs controller, or a death-over executioner. Crucial for captain's bowling rotation decisions.</p>
+    </div>
+    <div id="phase_chart"></div>
+  </div>
+  {% endif %}
+  {% if charts.econ_trend %}
+  <div class="chart-card">
+    <div class="chart-desc">
+      <h4>📉 Economy Trend Across Overs</h4>
+      <p>Over-by-over economy rate with the bowler's average shown as a dotted line. The pink zone highlights death overs (16–20). Reveals which overs this bowler is most/least effective in.</p>
+    </div>
+    <div id="econ_trend"></div>
+  </div>
+  {% endif %}
+  {% if charts.vs_style %}
+  <div class="chart-card">
+    <div class="chart-desc">
+      <h4>🏏 vs Left-Handers vs Right-Handers</h4>
+      <p>Economy and wicket% split by batting hand. Many bowlers have a clear LHB/RHB preference — this helps captains decide matchups and bowling changes when a new batter arrives.</p>
+    </div>
+    <div id="vs_style"></div>
+  </div>
+  {% endif %}
+  {% if charts.wicket_zones %}
+  <div class="chart-card wide">
+    <div class="chart-desc">
+      <h4>💀 Top Wicket-Taking Zones</h4>
+      <p>The specific line/length/phase combinations where this bowler takes the most wickets. Color intensity = total wickets taken. These are the "go-to" deliveries when a wicket is needed.</p>
+    </div>
+    <div id="wicket_zones"></div>
+  </div>
+  {% endif %}
+  {% if charts.targets %}
+  <div class="chart-card wide">
+    <div class="chart-desc">
+      <h4>🎯 Best Batsmen to Target</h4>
+      <p>Batsmen this bowler has the best record against, ranked by a success index combining economy and wicket rates. Deploy this bowler specifically when these batsmen are at the crease.</p>
+    </div>
+    <div id="targets"></div>
+  </div>
+  {% endif %}
 </div>
 
 <script>

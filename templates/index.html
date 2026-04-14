@@ -3,54 +3,111 @@
 {% block content %}
 <div class="hero">
   <h1>🏏 Cricket Strategy Recommendation System</h1>
-  <p>Pre-game intelligence, strength &amp; weakness analysis, and data-driven strategy recommendations.</p>
+  <p>Pre-game intelligence powered by ML on 200K+ ICC T20 World Cup deliveries. Explore strength & weakness maps, shot risk profiles, matchup strategies, and data-driven coaching insights.</p>
 </div>
 
 <div class="search-grid">
   <!-- Batsman Search -->
   <div class="card">
     <h2>🏏 Batsman Report</h2>
-    <p>Strength zones, weakness zones, shot risk profile, phase analysis, and more.</p>
+    <p>Explore strength zones, weakness maps, shot risk profiles, phase breakdowns, and historical head-to-head data against bowlers.</p>
     <form action="" onsubmit="goBatsman(event)">
-      <input list="batsman-list" id="batsman-input" class="search-input"
-             placeholder="Type batsman full name..." autocomplete="off">
-      <datalist id="batsman-list">
-        {% for name in batsmen %}<option value="{{ name }}">{% endfor %}
-      </datalist>
-      <button type="submit" class="btn btn-primary">View Report →</button>
+      <div class="autocomplete-wrapper">
+        <span class="autocomplete-icon">🔍</span>
+        <input type="text" id="batsman-input" class="autocomplete-input"
+               placeholder="Search batsman by name..." autocomplete="off">
+        <div id="batsman-dropdown" class="autocomplete-dropdown"></div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%">View Batsman Report →</button>
     </form>
   </div>
 
   <!-- Bowler Search -->
   <div class="card">
     <h2>🎯 Bowler Report</h2>
-    <p>Strength zones, economy trend, wicket profile, LHB/RHB analysis, and more.</p>
+    <p>Analyze economy trends, wicket-taking zones, dot-ball efficiency, batting-style matchups, and best batsmen to target.</p>
     <form action="" onsubmit="goBowler(event)">
-      <input list="bowler-list" id="bowler-input" class="search-input"
-             placeholder="Type bowler full name..." autocomplete="off">
-      <datalist id="bowler-list">
-        {% for name in bowlers %}<option value="{{ name }}">{% endfor %}
-      </datalist>
-      <button type="submit" class="btn btn-secondary">View Report →</button>
+      <div class="autocomplete-wrapper">
+        <span class="autocomplete-icon">🔍</span>
+        <input type="text" id="bowler-input" class="autocomplete-input"
+               placeholder="Search bowler by name..." autocomplete="off">
+        <div id="bowler-dropdown" class="autocomplete-dropdown"></div>
+      </div>
+      <button type="submit" class="btn btn-secondary" style="width:100%">View Bowler Report →</button>
     </form>
   </div>
 
   <!-- Matchup -->
   <div class="card">
     <h2>⚔️ Matchup Analysis</h2>
-    <p>Head-to-head: get bowling strategy, field placement, and historical matchup data.</p>
-    <a href="/matchup" class="btn btn-accent">Go to Matchup →</a>
+    <p>Get a full bowling strategy against any batsman: threat assessment, recommended line & length, field placement, and historical matchup intelligence.</p>
+    <a href="/matchup" class="btn btn-accent" style="width:100%;text-align:center;display:block;">Go to Matchup Analysis →</a>
   </div>
 
   <!-- Insights -->
   <div class="card">
     <h2>📊 Global Insights</h2>
-    <p>Dataset-wide patterns: over trends, pitch zones, phase comparisons, bowler scatter.</p>
-    <a href="/insights" class="btn btn-dark">View Insights →</a>
+    <p>Tournament-level analysis: over-by-over trends, pitch zone heatmaps, phase comparisons, delivery outcome distributions, and bowler scatter plots.</p>
+    <a href="/insights" class="btn btn-dark" style="width:100%;text-align:center;display:block;">View Global Insights →</a>
   </div>
 </div>
 
 <script>
+/* ── Custom Autocomplete Engine ────────────────────────────────── */
+var allBatsmen = {{ batsmen | tojson }};
+var allBowlers = {{ bowlers | tojson }};
+
+function setupAutocomplete(inputId, dropdownId, names) {
+  var input = document.getElementById(inputId);
+  var dropdown = document.getElementById(dropdownId);
+  var activeIdx = -1;
+
+  function render(query) {
+    dropdown.innerHTML = '';
+    activeIdx = -1;
+    if (!query) { dropdown.classList.remove('show'); return; }
+    var q = query.toLowerCase();
+    var matches = names.filter(function(n) { return n.toLowerCase().indexOf(q) !== -1; });
+    if (matches.length === 0) { dropdown.classList.remove('show'); return; }
+    var countDiv = document.createElement('div');
+    countDiv.className = 'autocomplete-count';
+    countDiv.textContent = matches.length + ' player' + (matches.length > 1 ? 's' : '') + ' found';
+    dropdown.appendChild(countDiv);
+    matches.slice(0, 30).forEach(function(name, idx) {
+      var item = document.createElement('div');
+      item.className = 'autocomplete-item';
+      item.dataset.idx = idx;
+      // Highlight matched portion
+      var li = name.toLowerCase().indexOf(q);
+      item.innerHTML = name.substring(0, li) + '<mark>' + name.substring(li, li + q.length) + '</mark>' + name.substring(li + q.length);
+      item.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        input.value = name;
+        dropdown.classList.remove('show');
+      });
+      dropdown.appendChild(item);
+    });
+    dropdown.classList.add('show');
+  }
+
+  input.addEventListener('input', function() { render(this.value.trim()); });
+  input.addEventListener('focus', function() { if (this.value.trim()) render(this.value.trim()); });
+  input.addEventListener('blur', function() { setTimeout(function() { dropdown.classList.remove('show'); }, 150); });
+  input.addEventListener('keydown', function(e) {
+    var items = dropdown.querySelectorAll('.autocomplete-item');
+    if (!items.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); }
+    else if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); input.value = names.filter(function(n) { return n.toLowerCase().indexOf(input.value.trim().toLowerCase()) !== -1; })[activeIdx]; dropdown.classList.remove('show'); return; }
+    else return;
+    items.forEach(function(el, i) { el.classList.toggle('active', i === activeIdx); });
+    if (items[activeIdx]) items[activeIdx].scrollIntoView({block: 'nearest'});
+  });
+}
+
+setupAutocomplete('batsman-input', 'batsman-dropdown', allBatsmen);
+setupAutocomplete('bowler-input', 'bowler-dropdown', allBowlers);
+
 function goBatsman(e) {
   e.preventDefault();
   var v = document.getElementById('batsman-input').value.trim();
