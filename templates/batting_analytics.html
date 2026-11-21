@@ -1,0 +1,656 @@
+{% extends "base.html" %}
+
+{% block title %}{{ selected_batter or "Batting Analytics" }} — Cricket Intelligence{% endblock %}
+
+{% block content %}
+
+{# ═══════════════════════════════════════════════════════════════
+   PAGE HEADER
+═══════════════════════════════════════════════════════════════ #}
+<div class="bat-page-header">
+  <div class="bat-header-left">
+    <span class="bat-eyebrow">🏏 Batting Intelligence</span>
+    <h1 class="bat-title">Player Performance Engine</h1>
+    <p class="bat-subtitle">Ball-by-ball analytics from 4.8 million Cricsheet deliveries across T20I, ODI &amp; Test cricket.</p>
+  </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════
+   SEARCH & FILTER BAR
+═══════════════════════════════════════════════════════════════ #}
+<div class="bat-filter-bar">
+  <form method="GET" action="/batting" id="search-form">
+
+    <div class="bat-filter-row">
+      {# Batsman search #}
+      <div class="bat-field bat-field-player">
+        <label for="player">Batsman</label>
+        <div class="bat-input-wrap">
+          <span class="bat-input-icon">🔍</span>
+          <input
+            type="text"
+            id="player"
+            name="player"
+            value="{{ selected_batter }}"
+            placeholder="Search batter by name (e.g. V Kohli)..."
+            autocomplete="off"
+            required
+            class="bat-input"
+          >
+          <div id="player-dropdown" class="autocomplete-dropdown"></div>
+        </div>
+      </div>
+
+      {# Format #}
+      <div class="bat-field">
+        <label for="match_type">Format</label>
+        <select name="match_type" id="match_type" class="bat-select" onchange="handleFormatChange(this.value)">
+          <option value="All"  {% if selected_format == 'All'  %}selected{% endif %}>All Formats</option>
+          <option value="T20I" {% if selected_format == 'T20I' %}selected{% endif %}>T20 International</option>
+          <option value="ODI"  {% if selected_format == 'ODI'  %}selected{% endif %}>One-Day International</option>
+          <option value="Test" {% if selected_format == 'Test' %}selected{% endif %}>Test Match</option>
+        </select>
+      </div>
+
+      {# Phase (hidden for Test) #}
+      <div class="bat-field" id="phase-filter-group" {% if is_test_format or is_all_format %}style="display:none"{% endif %}>
+        <label for="phase">Phase</label>
+        <select name="phase" id="phase" class="bat-select">
+          <option value="All"       {% if selected_phase == 'All'       %}selected{% endif %}>All Phases</option>
+          <option value="Powerplay" {% if selected_phase == 'Powerplay' %}selected{% endif %}>Powerplay</option>
+          <option value="Middle"    {% if selected_phase == 'Middle'    %}selected{% endif %}>Middle Overs</option>
+          <option value="Death"     {% if selected_phase == 'Death'     %}selected{% endif %}>Death Overs</option>
+        </select>
+      </div>
+
+      {# Analyze button #}
+      <div class="bat-field bat-field-btn">
+        <button type="submit" class="bat-analyze-btn">Analyze</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════
+   EMPTY STATE
+═══════════════════════════════════════════════════════════════ #}
+{% if not overview %}
+<div class="bat-empty">
+  <div class="bat-empty-icon"></div>
+  <h3>No data found for "{{ selected_batter }}"</h3>
+  <p>Try searching for a player such as <strong>V Kohli</strong>, <strong>RG Sharma</strong>, <strong>DA Warner</strong> or <strong>SPD Smith</strong>.</p>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════
+   PLAYER RESULTS
+═══════════════════════════════════════════════════════════════ #}
+{% else %}
+
+{# ─€─€ Player identity strip ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ #}
+<div class="bat-player-strip">
+  <div class="bat-player-identity">
+    <h2 class="bat-player-name">{{ overview.player_name }}</h2>
+    <div class="bat-player-tags">
+      <span class="bat-tag bat-tag-format">{{ selected_format }}</span>
+      {% if not is_test_format and not is_all_format %}
+      <span class="bat-tag bat-tag-phase">{{ selected_phase }}</span>
+      {% endif %}
+      {% if is_test_format %}
+      <span class="bat-tag bat-tag-test">Test Match Analysis</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# ─€─€ KPI cards ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ #}
+<div class="bat-kpi-row">
+
+  <div class="bat-kpi-card">
+    <div class="bat-kpi-label">Total Runs</div>
+    <div class="bat-kpi-value bat-kpi-blue">{{ "{:,}".format(overview.total_runs) }}</div>
+    <div class="bat-kpi-sub">{{ overview.innings_batted }} innings Â· {{ overview.matches_played }} matches</div>
+  </div>
+
+  <div class="bat-kpi-card">
+    <div class="bat-kpi-label">Strike Rate</div>
+    <div class="bat-kpi-value bat-kpi-green">{{ overview.strike_rate }}</div>
+    <div class="bat-kpi-sub">{{ "{:,}".format(overview.balls_faced) }} balls faced</div>
+  </div>
+
+  <div class="bat-kpi-card">
+    <div class="bat-kpi-label">Boundary %</div>
+    <div class="bat-kpi-value bat-kpi-orange">{{ overview.boundary_pct }}%</div>
+    <div class="bat-kpi-sub">{{ overview.fours }} fours Â· {{ overview.sixes }} sixes</div>
+  </div>
+
+  <div class="bat-kpi-card">
+    <div class="bat-kpi-label">Dot Ball %</div>
+    <div class="bat-kpi-value bat-kpi-red">{{ overview.dot_pct }}%</div>
+    <div class="bat-kpi-sub">{{ "{:,}".format(overview.dot_balls) }} dot balls</div>
+  </div>
+
+  <div class="bat-kpi-card">
+    <div class="bat-kpi-label">Balls / Dismissal</div>
+    <div class="bat-kpi-value bat-kpi-purple">{{ overview.balls_per_dismissal }}</div>
+    <div class="bat-kpi-sub">{{ overview.dismissals }} career dismissals</div>
+  </div>
+
+</div>
+
+{# ═══════════════════════════════════════════════════════════════
+   VISUALISATIONS — full-width stacked, one per row
+   Structure per chart:
+     .bat-chart-block
+       .bat-chart-meta   ← heading + insight sentence
+       .bat-chart-body   ← 100% wide Plotly
+═══════════════════════════════════════════════════════════════ #}
+<div class="bat-charts-stack">
+
+  {# ─€─€ 1. Test Innings Progression (Test only) ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ #}
+  {% if is_test_format and test_inning_plot %}
+  <div class="bat-chart-block">
+    <div class="bat-chart-meta">
+      <div class="bat-chart-meta-left">
+        <span class="bat-chart-num">01</span>
+        <div>
+          <h3 class="bat-chart-title">Test Innings Progression</h3>
+          <p class="bat-chart-desc">How the batsman performs across each of the four Test innings. Runs scored and strike rate are shown per innings position — 1st innings (setting tone), 2nd innings (responding), 3rd (momentum shift) and 4th (chasing under pressure). Lower strike rate in later innings often signals big-match temperament.</p>
+        </div>
+      </div>
+    </div>
+    <div class="bat-chart-body">{{ test_inning_plot | safe }}</div>
+  </div>
+  {% endif %}
+
+  {# ─€─€ 2. Phase-Wise Attack Profile (T20I / ODI only) ─€─€─€─€─€─€─€─€ #}
+  {% if not is_test_format and not is_all_format and phase_plot %}
+  <div class="bat-chart-block">
+    <div class="bat-chart-meta">
+      <div class="bat-chart-meta-left">
+        <span class="bat-chart-num">01</span>
+        <div>
+          <h3 class="bat-chart-title">Phase-Wise Attack Profile</h3>
+          <p class="bat-chart-desc">Runs and strike rate broken down by Powerplay (overs 1–6), Middle (7–15 for ODI, 7–15 for T20) and Death overs. Reveals whether the batsman is a slow starter who accelerates or an explosive Powerplay opener — critical for team-selection and bowling plans.</p>
+        </div>
+      </div>
+    </div>
+    <div class="bat-chart-body">{{ phase_plot | safe }}</div>
+  </div>
+  {% endif %}
+
+  {# ─€─€ 3. Chase Matrix (T20I / ODI only) ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ #}
+  {% if not is_test_format and not is_all_format and chase_plot %}
+  <div class="bat-chart-block">
+    <div class="bat-chart-meta">
+      <div class="bat-chart-meta-left">
+        <span class="bat-chart-num">02</span>
+        <div>
+          <h3 class="bat-chart-title">Setting Target vs Chasing</h3>
+          <p class="bat-chart-desc">Compares the batsman's approach when batting first (setting a target) against when chasing. Strike rate, boundary percentage and dot ball percentage are shown side-by-side. A higher strike rate while chasing typically indicates strong situational awareness and game-reading ability.</p>
+        </div>
+      </div>
+    </div>
+    <div class="bat-chart-body">{{ chase_plot | safe }}</div>
+  </div>
+  {% endif %}
+
+  {# ─€─€ 4. Opponent Dominance (all formats) ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ #}
+  {% if team_plot %}
+  {% if is_test_format %}{% set opp_num = "02" %}{% elif is_all_format %}{% set opp_num = "01" %}{% else %}{% set opp_num = "03" %}{% endif %}
+  <div class="bat-chart-block">
+    <div class="bat-chart-meta">
+      <div class="bat-chart-meta-left">
+        <span class="bat-chart-num">{{ opp_num }}</span>
+        <div>
+          <h3 class="bat-chart-title">Opponent Dominance</h3>
+          <p class="bat-chart-desc">Total runs and strike rate against each international opponent. The bars reveal volume (how much was scored) while the orange line shows efficiency (how quickly). Teams where the bar is tall and the line is high are hunting grounds — teams where both are low are historically difficult matchups.</p>
+        </div>
+      </div>
+    </div>
+    <div class="bat-chart-body">{{ team_plot | safe }}</div>
+  </div>
+  {% endif %}
+
+  {# ─€─€ 5. Dismissal Anatomy (all formats) ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ #}
+  {% if dismissal_plot %}
+  {% if is_test_format %}{% set dis_num = "03" %}{% elif is_all_format %}{% set dis_num = "02" %}{% else %}{% set dis_num = "04" %}{% endif %}
+  <div class="bat-chart-block">
+    <div class="bat-chart-meta">
+      <div class="bat-chart-meta-left">
+        <span class="bat-chart-num">{{ dis_num }}</span>
+        <div>
+          <h3 class="bat-chart-title">Dismissal Anatomy</h3>
+          <p class="bat-chart-desc">How is this batsman most commonly dismissed? The donut chart breaks down every career dismissal by mode — caught, bowled, LBW, run-out, stumped. A heavy "caught" segment points to aerial attacking play; a large "LBW" slice may reveal a gap between bat and pad or a weakness to in-swing.</p>
+        </div>
+      </div>
+    </div>
+    <div class="bat-chart-body">{{ dismissal_plot | safe }}</div>
+  </div>
+  {% endif %}
+
+  {# ─€─€ 6. Venue Mastery (all formats) ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ #}
+  {% if venue_plot %}
+  {% if is_test_format %}{% set ven_num = "04" %}{% elif is_all_format %}{% set ven_num = "03" %}{% else %}{% set ven_num = "05" %}{% endif %}
+  <div class="bat-chart-block">
+    <div class="bat-chart-meta">
+      <div class="bat-chart-meta-left">
+        <span class="bat-chart-num">{{ ven_num }}</span>
+        <div>
+          <h3 class="bat-chart-title">Venue Mastery</h3>
+          <p class="bat-chart-desc">Top grounds ranked by total runs. Bars are colour-graded by strike rate — brighter teal means a faster scoring rate at that venue. Some batsmen accumulate runs slowly at their home ground while exploding at neutral or away venues; this chart makes those tendencies immediately visible.</p>
+        </div>
+      </div>
+    </div>
+    <div class="bat-chart-body">{{ venue_plot | safe }}</div>
+  </div>
+  {% endif %}
+
+</div>{# /bat-charts-stack #}
+
+{% endif %}{# /overview #}
+
+{# ═══════════════════════════════════════════════════════════════
+   JS: format change + autocomplete
+═══════════════════════════════════════════════════════════════ #}
+<script>
+function handleFormatChange(val) {
+  const phaseGroup = document.getElementById("phase-filter-group");
+  if (!phaseGroup) return;
+  phaseGroup.style.display = (val === "Test" || val === "All") ? "none" : "";
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  const input = document.getElementById("player");
+  const dropdown = document.getElementById("player-dropdown");
+  const popular = {{ popular_batters | tojson }};
+  let activeIdx = -1;
+
+  function renderDropdown(names, q) {
+    dropdown.innerHTML = "";
+    activeIdx = -1;
+    if (!names || names.length === 0) {
+      dropdown.classList.remove("show");
+      return;
+    }
+    const countDiv = document.createElement("div");
+    countDiv.className = "autocomplete-count";
+    countDiv.textContent = q ? `${names.length} player(s) found` : "Popular Batters";
+    dropdown.appendChild(countDiv);
+
+    names.slice(0, 15).forEach((name, idx) => {
+      const item = document.createElement("div");
+      item.className = "autocomplete-item";
+      item.dataset.idx = idx;
+      if (q) {
+        const li = name.toLowerCase().indexOf(q.toLowerCase());
+        if (li >= 0) {
+          item.innerHTML = name.substring(0, li) + "<mark>" + name.substring(li, li + q.length) + "</mark>" + name.substring(li + q.length);
+        } else {
+          item.textContent = name;
+        }
+      } else {
+        item.textContent = name;
+      }
+      item.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        input.value = name;
+        dropdown.classList.remove("show");
+        document.getElementById("search-form").submit();
+      });
+      dropdown.appendChild(item);
+    });
+    dropdown.classList.add("show");
+  }
+
+  input.addEventListener("focus", function () {
+    const val = this.value.trim();
+    if (val.length >= 2) {
+      fetch("/api/search_batters?q=" + encodeURIComponent(val))
+        .then(r => r.json())
+        .then(data => renderDropdown(data, val))
+        .catch(() => renderDropdown(popular, ""));
+    } else {
+      renderDropdown(popular, "");
+    }
+  });
+
+  input.addEventListener("input", function () {
+    const val = this.value.trim();
+    if (val.length < 1) {
+      renderDropdown(popular, "");
+      return;
+    }
+    fetch("/api/search_batters?q=" + encodeURIComponent(val))
+      .then(r => r.json())
+      .then(data => renderDropdown(data, val))
+      .catch(() => {});
+  });
+
+  input.addEventListener("blur", function () {
+    setTimeout(() => { dropdown.classList.remove("show"); }, 200);
+  });
+
+  input.addEventListener("keydown", function (e) {
+    const items = dropdown.querySelectorAll(".autocomplete-item");
+    if (!items.length || !dropdown.classList.contains("show")) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      activeIdx = Math.min(activeIdx + 1, items.length - 1);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      activeIdx = Math.max(activeIdx - 1, 0);
+    } else if (e.key === "Enter" && activeIdx >= 0) {
+      e.preventDefault();
+      items[activeIdx].dispatchEvent(new MouseEvent("mousedown"));
+      return;
+    } else if (e.key === "Escape") {
+      dropdown.classList.remove("show");
+      return;
+    }
+    items.forEach((el, i) => el.classList.toggle("active", i === activeIdx));
+    if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: "nearest" });
+  });
+
+  // Responsive plot auto-fit: recalculate container widths smoothly
+  function resizeAllPlots() {
+    if (window.Plotly) {
+      document.querySelectorAll('.plotly-graph-div').forEach(function(el) {
+        window.Plotly.Plots.resize(el);
+      });
+    }
+  }
+  window.addEventListener('resize', resizeAllPlots);
+  setTimeout(resizeAllPlots, 100);
+  setTimeout(resizeAllPlots, 500);
+});
+</script>
+
+{# ═══════════════════════════════════════════════════════════════
+   PAGE-SCOPED CSS
+═══════════════════════════════════════════════════════════════ #}
+<style>
+/* ─€─€ Accent palette ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+:root {
+  --bat-blue:   #3b82f6;
+  --bat-green:  #10b981;
+  --bat-orange: #f97316;
+  --bat-red:    #ef4444;
+  --bat-purple: #8b5cf6;
+  --bat-cyan:   #06b6d4;
+  --bat-surface: #ffffff;
+  --bat-border:  #e0e0e0;
+  --bat-radius:  12px;
+  --muted:       #6b7280;
+}
+
+/* ─€─€ Page header ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.bat-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--bat-border);
+}
+.bat-eyebrow {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--bat-blue);
+  margin-bottom: 0.5rem;
+}
+.bat-title { font-size: 1.9rem; font-weight: 800; letter-spacing: -0.5px; color: #111111;
+  margin: 0 0 0.4rem;
+  line-height: 1.1;
+}
+.bat-subtitle {
+  font-size: 0.88rem;
+  color: var(--muted);
+  max-width: 560px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ─€─€ Filter bar ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.bat-filter-bar {
+  background: #f8f9fa;
+  border: 1.5px solid var(--bat-border);
+  border-radius: var(--bat-radius);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 2rem;
+}
+.bat-filter-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.bat-field { display: flex; flex-direction: column; gap: 0.35rem; }
+.bat-field-player { flex: 2 1 260px; }
+.bat-field { flex: 1 1 160px; }
+.bat-field label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.bat-input-wrap { position: relative; }
+.bat-input-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+.bat-input, .bat-select {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  background: #f8f8f8;
+  border: 1.5px solid var(--bat-border);
+  border-radius: 8px;
+  color: #111111;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+}
+.bat-input { padding-left: 2.4rem; }
+.bat-input:focus, .bat-select:focus {
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249,115,22,0.15);
+}
+.bat-input::placeholder { color: #9ca3af; }
+.bat-select option { background: #fff; color: #111111; }
+.bat-field-btn { justify-content: flex-end; }
+.bat-analyze-btn {
+  padding: 0.65rem 1.6rem;
+  background: #f97316;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 14px rgba(249,115,22,0.35);
+  white-space: nowrap;
+}
+.bat-analyze-btn:hover {
+  background: #ea6a0a;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(249,115,22,0.45);
+}
+
+/* ─€─€ Empty state ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.bat-empty {
+  text-align: center;
+  padding: 5rem 2rem;
+  background: var(--bat-surface);
+  border: 1px dashed var(--bat-border);
+  border-radius: var(--bat-radius);
+}
+.bat-empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+.bat-empty h3 { font-size: 1.3rem; font-weight: 700; color: #111111; margin-bottom: 0.5rem; }
+.bat-empty p    { color: var(--muted); font-size: 0.9rem; }
+
+/* ─€─€ Player identity strip ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.bat-player-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.bat-player-name {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #111111;
+  letter-spacing: -0.4px;
+  margin: 0 0 0.5rem;
+}
+.bat-player-tags { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.bat-tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 0.2rem 0.75rem;
+  border-radius: 20px;
+}
+.bat-tag-format  { background: rgba(59,130,246,0.15);  color: var(--bat-blue);   border: 1px solid rgba(59,130,246,0.3);  }
+.bat-tag-phase   { background: rgba(16,185,129,0.15);  color: var(--bat-green);  border: 1px solid rgba(16,185,129,0.3);  }
+.bat-tag-test    { background: rgba(139,92,246,0.15);  color: var(--bat-purple); border: 1px solid rgba(139,92,246,0.3);  }
+
+/* ─€─€ KPI cards ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.bat-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+.bat-kpi-card {
+  background: #ffffff;
+  border: 1.5px solid var(--bat-border);
+  border-radius: var(--bat-radius);
+  padding: 1.2rem 1.4rem;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.bat-kpi-card:hover { transform: translateY(-2px); border-color: #f97316; box-shadow: 0 4px 16px rgba(249,115,22,0.12); }
+.bat-kpi-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+.bat-kpi-value {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1;
+  margin-bottom: 0.4rem;
+}
+.bat-kpi-sub   { font-size: 0.75rem; color: var(--muted); }
+.bat-kpi-blue   { color: var(--bat-blue); }
+.bat-kpi-green  { color: var(--bat-green); }
+.bat-kpi-orange { color: var(--bat-orange); }
+.bat-kpi-red    { color: var(--bat-red); }
+.bat-kpi-purple { color: var(--bat-purple); }
+
+/* ─€─€ Charts stack: each chart is FULL WIDTH ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.bat-charts-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+.bat-chart-block {
+  background: #ffffff;
+  border: 1.5px solid var(--bat-border);
+  border-radius: var(--bat-radius);
+  overflow: hidden;
+  transition: border-color 0.25s;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+}
+.bat-chart-block:hover { border-color: #f97316; box-shadow: 0 4px 16px rgba(249,115,22,0.1); }
+
+/* Meta row: number badge + title + description */
+.bat-chart-meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.4rem 1.6rem 1rem;
+  border-bottom: 1px solid #e8e8e8;
+}
+.bat-chart-meta-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  flex: 1;
+}
+.bat-chart-num {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--bat-blue);
+  background: rgba(59,130,246,0.1);
+  border: 1px solid rgba(59,130,246,0.25);
+  border-radius: 6px;
+  padding: 0.25rem 0.55rem;
+  margin-top: 0.1rem;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+.bat-chart-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111111;
+  margin: 0 0 0.4rem;
+  letter-spacing: -0.2px;
+}
+.bat-chart-desc {
+  font-size: 0.84rem;
+  color: var(--muted);
+  line-height: 1.65;
+  margin: 0;
+  max-width: 820px;
+}
+
+/* Chart body: full width, no extra padding so Plotly fills edge-to-edge */
+.bat-chart-body {
+  padding: 0.5rem 0.5rem 1rem;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+.bat-chart-body .js-plotly-plot,
+.bat-chart-body .plotly-graph-div {
+  width: 100% !important;
+}
+
+/* ─€─€ Responsive ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+@media (max-width: 640px) {
+  .bat-title      { font-size: 1.5rem; }
+  .bat-filter-row { flex-direction: column; }
+  .bat-field      { width: 100%; }
+  .bat-kpi-row    { grid-template-columns: repeat(2, 1fr); }
+  .bat-chart-meta { flex-direction: column; gap: 0.75rem; }
+  .bat-chart-num  { align-self: flex-start; }
+}
+</style>
+
+{% endblock %}
+
+
+
+
+
+

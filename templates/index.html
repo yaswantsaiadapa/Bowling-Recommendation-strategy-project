@@ -1,122 +1,64 @@
 {% extends "base.html" %}
-{% block title %}Cricket Analytics — Home{% endblock %}
+{% block title %}Cricket Analytics — Performance &amp; Tactical Intelligence Platform{% endblock %}
 {% block content %}
+
 <div class="hero">
-  <h1>🏏 Cricket Strategy Recommendation System</h1>
-  <p>Pre-game intelligence powered by ML on 200K+ ICC T20 World Cup deliveries. Explore strength & weakness maps, shot risk profiles, matchup strategies, and data-driven coaching insights.</p>
+  <div class="hero-image-wrap">
+    <img src="{{ url_for('static', filename='cricket.jpg') }}" alt="Cricket Analytics Platform" class="hero-img">
+  </div>
+  <h1>Cricket Strategy &amp; Performance Intelligence Platform</h1>
+  <p>Production-grade macro and micro-analytics powered by <strong>4.81 million ball-by-ball international deliveries</strong> across Test, ODI, and T20I cricket (2001–2026). Explore player encyclopedias, venue pace vs. spin breakdowns, pre-game condition simulators, and tactical head-to-head matchup engines.</p>
 </div>
 
 <div class="search-grid">
-  <!-- Batsman Search -->
+
+  <!-- Batting Analytics -->
   <div class="card">
-    <h2>🏏 Batsman Report</h2>
-    <p>Explore strength zones, weakness maps, shot risk profiles, phase breakdowns, and historical head-to-head data against bowlers.</p>
-    <form action="" onsubmit="goBatsman(event)">
-      <div class="autocomplete-wrapper">
-        <span class="autocomplete-icon">🔍</span>
-        <input type="text" id="batsman-input" class="autocomplete-input"
-               placeholder="Search batsman by name..." autocomplete="off">
-        <div id="batsman-dropdown" class="autocomplete-dropdown"></div>
-      </div>
-      <button type="submit" class="btn btn-primary" style="width:100%">View Batsman Report →</button>
-    </form>
+    <div class="card-icon">🏏</div>
+    <h2>Batting Intelligence</h2>
+    <p>Comprehensive batting profiles: Test 4-innings decay, limited-overs phase attack rates, pitch zone heatmaps, and opponent dominance across formats.</p>
+    <a href="/batting" class="btn btn-orange" style="width:100%;text-align:center;display:block;">Open Batting Analytics →</a>
   </div>
 
-  <!-- Bowler Search -->
+  <!-- Bowling Analytics -->
   <div class="card">
-    <h2>🎯 Bowler Report</h2>
-    <p>Analyze economy trends, wicket-taking zones, dot-ball efficiency, batting-style matchups, and best batsmen to target.</p>
-    <form action="" onsubmit="goBowler(event)">
-      <div class="autocomplete-wrapper">
-        <span class="autocomplete-icon">🔍</span>
-        <input type="text" id="bowler-input" class="autocomplete-input"
-               placeholder="Search bowler by name..." autocomplete="off">
-        <div id="bowler-dropdown" class="autocomplete-dropdown"></div>
-      </div>
-      <button type="submit" class="btn btn-secondary" style="width:100%">View Bowler Report →</button>
-    </form>
+    <div class="card-icon">🎯</div>
+    <h2>Bowling Intelligence</h2>
+    <p>In-depth bowling lethality: line &amp; length pitch heatmaps, phase impact (Powerplay/Death), delivery profiles, and style exploitation records.</p>
+    <a href="/bowling" class="btn btn-orange" style="width:100%;text-align:center;display:block;">Open Bowling Analytics →</a>
   </div>
 
-  <!-- Matchup -->
+  <!-- Matchup Engine -->
   <div class="card">
-    <h2>⚔️ Matchup Analysis</h2>
-    <p>Get a full bowling strategy against any batsman: threat assessment, recommended line & length, field placement, and historical matchup intelligence.</p>
-    <a href="/matchup" class="btn btn-accent" style="width:100%;text-align:center;display:block;">Go to Matchup Analysis →</a>
+    <div class="card-icon">⚔️</div>
+    <h2>Tactical Matchup Engine</h2>
+    <p>Tactical battle dossier: Batter vs. Bowler duels, Batter vs. Team, and Bowler vs. Team across Test, ODI, and T20I formats with dismissal distributions.</p>
+    <a href="/matchup" class="btn btn-orange" style="width:100%;text-align:center;display:block;">Open Matchup Engine →</a>
   </div>
 
-  <!-- Insights -->
+  <!-- Team & Venue Intelligence -->
   <div class="card">
-    <h2>📊 Global Insights</h2>
-    <p>Tournament-level analysis: over-by-over trends, pitch zone heatmaps, phase comparisons, delivery outcome distributions, and bowler scatter plots.</p>
-    <a href="/insights" class="btn btn-dark" style="width:100%;text-align:center;display:block;">View Global Insights →</a>
+    <div class="card-icon">🏟️</div>
+    <h2>Team &amp; Venue Intelligence</h2>
+    <p>Ground profiles: Pace vs. Spin wicket distributions, bowling averages, 1st innings par scores, and home ground fortress win rates.</p>
+    <a href="/venues" class="btn btn-orange" style="width:100%;text-align:center;display:block;">Open Venues &amp; Teams →</a>
   </div>
+
+  <!-- Strategy & Match Simulator -->
+  <div class="card">
+    <div class="card-icon">🔮</div>
+    <h2>Pre-Game Strategy Simulator</h2>
+    <p>Pre-game win probability model under toss conditions, condition-smart Ideal Playing XI selector (retirees excluded by era), and H2H player battle dossier.</p>
+    <a href="/simulator" class="btn btn-orange" style="width:100%;text-align:center;display:block;">Launch Simulator →</a>
+  </div>
+
+  <!-- Global Insights & Historical Evolution -->
+  <div class="card">
+    <div class="card-icon">📊</div>
+    <h2>Global Insights &amp; Evolution</h2>
+    <p>Historical scoring tempo (2001–2026), Test 4-innings independent progression, limited-overs target chasing brackets, and era-by-era evolution.</p>
+    <a href="/insights" class="btn btn-orange" style="width:100%;text-align:center;display:block;">View Global Insights →</a>
+  </div>
+
 </div>
-
-<script>
-/* ── Custom Autocomplete Engine ────────────────────────────────── */
-var allBatsmen = {{ batsmen | tojson }};
-var allBowlers = {{ bowlers | tojson }};
-
-function setupAutocomplete(inputId, dropdownId, names) {
-  var input = document.getElementById(inputId);
-  var dropdown = document.getElementById(dropdownId);
-  var activeIdx = -1;
-
-  function render(query) {
-    dropdown.innerHTML = '';
-    activeIdx = -1;
-    if (!query) { dropdown.classList.remove('show'); return; }
-    var q = query.toLowerCase();
-    var matches = names.filter(function(n) { return n.toLowerCase().indexOf(q) !== -1; });
-    if (matches.length === 0) { dropdown.classList.remove('show'); return; }
-    var countDiv = document.createElement('div');
-    countDiv.className = 'autocomplete-count';
-    countDiv.textContent = matches.length + ' player' + (matches.length > 1 ? 's' : '') + ' found';
-    dropdown.appendChild(countDiv);
-    matches.slice(0, 30).forEach(function(name, idx) {
-      var item = document.createElement('div');
-      item.className = 'autocomplete-item';
-      item.dataset.idx = idx;
-      // Highlight matched portion
-      var li = name.toLowerCase().indexOf(q);
-      item.innerHTML = name.substring(0, li) + '<mark>' + name.substring(li, li + q.length) + '</mark>' + name.substring(li + q.length);
-      item.addEventListener('mousedown', function(e) {
-        e.preventDefault();
-        input.value = name;
-        dropdown.classList.remove('show');
-      });
-      dropdown.appendChild(item);
-    });
-    dropdown.classList.add('show');
-  }
-
-  input.addEventListener('input', function() { render(this.value.trim()); });
-  input.addEventListener('focus', function() { if (this.value.trim()) render(this.value.trim()); });
-  input.addEventListener('blur', function() { setTimeout(function() { dropdown.classList.remove('show'); }, 150); });
-  input.addEventListener('keydown', function(e) {
-    var items = dropdown.querySelectorAll('.autocomplete-item');
-    if (!items.length) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); }
-    else if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); input.value = names.filter(function(n) { return n.toLowerCase().indexOf(input.value.trim().toLowerCase()) !== -1; })[activeIdx]; dropdown.classList.remove('show'); return; }
-    else return;
-    items.forEach(function(el, i) { el.classList.toggle('active', i === activeIdx); });
-    if (items[activeIdx]) items[activeIdx].scrollIntoView({block: 'nearest'});
-  });
-}
-
-setupAutocomplete('batsman-input', 'batsman-dropdown', allBatsmen);
-setupAutocomplete('bowler-input', 'bowler-dropdown', allBowlers);
-
-function goBatsman(e) {
-  e.preventDefault();
-  var v = document.getElementById('batsman-input').value.trim();
-  if (v) window.location.href = '/batsman/' + encodeURIComponent(v);
-}
-function goBowler(e) {
-  e.preventDefault();
-  var v = document.getElementById('bowler-input').value.trim();
-  if (v) window.location.href = '/bowler/' + encodeURIComponent(v);
-}
-</script>
 {% endblock %}

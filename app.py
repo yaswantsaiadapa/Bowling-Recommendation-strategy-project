@@ -5,19 +5,24 @@ import sys
 # Make sure analytics package is importable from app.py location
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from flask import Flask, render_template, request, jsonify, abort
+from flask import Flask, render_template, request, jsonify, abort, redirect
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+from plotly.subplots import make_subplots               
 
-from analytics.data_loader import (
-    get_df, get_phase_sr, get_profiles, get_bowler_stats, get_matchup,
-    all_batsman_names, all_bowler_names
-)
-import analytics.batsman  as bat_analytics
-import analytics.bowler   as bowl_analytics
-import analytics.strategy as strat
+import analytics.batting_engine as bat_engine
+import analytics.batting_plots as bat_plots
+import analytics.bowling_engine as bowl_engine
+import analytics.bowling_plots as bowl_plots
+import analytics.matchup_engine as match_engine
+import analytics.matchup_plots as match_plots
+import analytics.venue_engine as venue_engine
+import analytics.venue_plots as venue_plots
+import analytics.simulator_engine as sim_engine
+import analytics.simulator_plots as sim_plots
+import analytics.insights_engine as ins_engine
+import analytics.insights_plots as ins_plots
 
 # ── App setup ─────────────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -97,372 +102,553 @@ def bar_json(x, y, title, color=None, orientation='v', colorscale=None):
     return _fig_to_json(fig)
 
 
+# ── Global Player Cache for Home Search ─────────────────────────────────────────
+_CACHED_BATSMEN = None
+_CACHED_BOWLERS = None
+
+def _get_top_player_names():
+    import duckdb
+    from pathlib import Path
+    db_path = Path(__file__).resolve().parent / "data" / "processed" / "cricket_master.duckdb"
+    try:
+        con = duckdb.connect(str(db_path), read_only=True)
+        batsmen = [r[0] for r in con.execute("SELECT DISTINCT batter FROM fact_deliveries_master WHERE batter IS NOT NULL ORDER BY batter").fetchall()]
+        bowlers = [r[0] for r in con.execute("SELECT DISTINCT bowler FROM fact_deliveries_master WHERE bowler IS NOT NULL ORDER BY bowler").fetchall()]
+        con.close()
+        return batsmen, bowlers
+    except Exception:
+        return [], []
+
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
 @app.route('/')
 def home():
     """Home page with search bars."""
-    batsmen = all_batsman_names()
-    bowlers = all_bowler_names()
-    return render_template('index.html', batsmen=batsmen, bowlers=bowlers)
+    global _CACHED_BATSMEN, _CACHED_BOWLERS
+    if _CACHED_BATSMEN is None or _CACHED_BOWLERS is None:
+        _CACHED_BATSMEN, _CACHED_BOWLERS = _get_top_player_names()
+    return render_template('index.html', batsmen=_CACHED_BATSMEN, bowlers=_CACHED_BOWLERS)
 
 
 @app.route('/batsman/<path:name>')
 def batsman_report(name):
-    """Full batsman pre-game report page."""
-    name = name.strip()
-
-    stats = bat_analytics.overall_stats(name)
-    if stats is None:
-        abort(404, description=f"No data found for batsman '{name}'")
-
-    sz   = bat_analytics.strength_zones(name)
-    wz   = bat_analytics.weakness_zones(name)
-    srp  = bat_analytics.shot_risk_profile(name)
-    vbs  = bat_analytics.vs_bowling_style(name)
-    cvs  = bat_analytics.chase_vs_set(name)
-    pp   = bat_analytics.pressure_performance(name)
-    gp   = bat_analytics.ground_performance(name)
-    h2h  = bat_analytics.head_to_head_vs_bowlers(name)
-    ps   = bat_analytics.phase_stats(name)
-
-    # ── Build charts ──
-    charts = {}
-
-    # Strength heatmap
-    charts['strength_heat'] = zone_heatmap_json(sz, 'strength_score',
-        'Strength Zone Map (High = Scores Freely)', 'Greens')
-
-    # Weakness heatmap
-    charts['weakness_heat'] = zone_heatmap_json(wz, 'weakness_score',
-        'Weakness Zone Map (High = Vulnerable)', 'Reds')
-
-    # Shot risk scatter
-    if not srp.empty:
-        fig = px.scatter(srp, x='wicket_pct', y='boundary_pct',
-                         size='balls', text='shot_label', color='risk_reward',
-                         color_continuous_scale='RdYlGn',
-                         title='Shot Risk Profile (right = risky, top = rewarding)',
-                         labels={'wicket_pct': 'Wicket %', 'boundary_pct': 'Boundary %'})
-        fig.update_traces(textposition='top center')
-        fig.update_layout(margin=dict(l=10,r=10,t=40,b=10), height=360)
-        charts['shot_risk'] = _fig_to_json(fig)
-
-    # vs Bowling Style
-    if not vbs.empty:
-        vbs_s = vbs.sort_values('strike_rate')
-        fig = px.bar(vbs_s, y='Bowler_Bowling_Style', x='strike_rate',
-                     orientation='h', color='wicket_pct',
-                     color_continuous_scale='RdYlGn_r',
-                     title='SR vs Each Bowling Style (colour = wicket%)',
-                     text=vbs_s['strike_rate'])
-        fig.update_traces(textposition='outside')
-        fig.update_layout(margin=dict(l=10,r=10,t=40,b=80), height=400,
-                          yaxis_title='', coloraxis_showscale=False)
-        charts['vs_style'] = _fig_to_json(fig)
-
-    # Phase breakdown
-    if not ps.empty:
-        ps_c = ps.copy()
-        ps_c['match_phase'] = pd.Categorical(
-            ps_c['match_phase'], ['Powerplay','Middle','Death'], ordered=True)
-        ps_c = ps_c.sort_values('match_phase')
-        fig = make_subplots(rows=1, cols=3,
-                             subplot_titles=['Strike Rate','Boundary %','Dot Ball %'])
-        colors = {'Powerplay':'#2ecc71','Middle':'#e67e22','Death':'#e74c3c'}
-        for i, col in enumerate(['strike_rate','boundary_pct','dot_ball_pct'], 1):
-            fig.add_trace(go.Bar(
-                x=ps_c['match_phase'], y=ps_c[col],
-                marker_color=[colors[p] for p in ps_c['match_phase']],
-                text=ps_c[col].round(1), textposition='outside',
-                showlegend=False), row=1, col=i)
-        fig.update_layout(title='Phase Breakdown', height=360,
-                           margin=dict(l=10,r=10,t=40,b=10))
-        charts['phase'] = _fig_to_json(fig)
-
-    # Chase vs Set
-    if not cvs.empty:
-        fig = px.bar(cvs, x='label', y=['strike_rate','boundary_pct'],
-                     barmode='group', title='Chase vs Set Performance',
-                     labels={'value':'Rate','variable':'Metric','label':''})
-        fig.update_layout(margin=dict(l=10,r=10,t=40,b=10), height=320)
-        charts['chase_vs_set'] = _fig_to_json(fig)
-
-    # Pressure performance
-    if not pp.empty:
-        fig = px.bar(pp, x='pressure_band', y='strike_rate',
-                     color='strike_rate', color_continuous_scale='RdYlGn',
-                     title='SR Under Wicket Pressure',
-                     text=pp['strike_rate'])
-        fig.update_traces(textposition='outside')
-        fig.update_layout(margin=dict(l=10,r=10,t=40,b=10), height=320,
-                           coloraxis_showscale=False)
-        charts['pressure'] = _fig_to_json(fig)
-
-    # Ground performance
-    if not gp.empty:
-        fig = px.bar(gp.head(10), x='Ground Name', y='strike_rate',
-                     color='boundary_pct', color_continuous_scale='Blues',
-                     title='Ground Performance (Top 10 by SR)',
-                     text=gp.head(10)['strike_rate'])
-        fig.update_traces(textposition='outside')
-        fig.update_layout(margin=dict(l=10,r=10,t=40,b=80),
-                           height=360, xaxis_tickangle=-35)
-        charts['ground'] = _fig_to_json(fig)
-
-    # Head-to-head
-    if not h2h.empty:
-        fig = px.bar(h2h.head(10), x='Bowler_Name', y='success_index_scaled',
-                     color='Bowler_Bowling_Style',
-                     hover_data=['economy_rate','wicket_pct'],
-                     title='Most Effective Bowlers vs This Batsman')
-        fig.update_layout(margin=dict(l=10,r=10,t=40,b=60),
-                           height=360, xaxis_tickangle=-30)
-        charts['h2h'] = _fig_to_json(fig)
-
-    return render_template('batsman_report.html',
-                            name=stats['full_name'],
-                            stats=stats,
-                            charts=charts,
-                            sz=sz.head(3).to_dict('records') if not sz.empty else [],
-                            wz=wz.head(3).to_dict('records') if not wz.empty else [])
+    """Seamless forward to master Batting Analytics."""
+    return redirect(f"/batting?player={name.strip()}")
 
 
 @app.route('/bowler/<path:name>')
 def bowler_report(name):
-    """Full bowler pre-game report page."""
-    name = name.strip()
-
-    stats = bowl_analytics.overall_stats(name)
-    if stats is None:
-        abort(404, description=f"No data found for bowler '{name}'")
-
-    sz   = bowl_analytics.strength_zones(name)
-    wz   = bowl_analytics.weakness_zones(name)
-    ps   = bowl_analytics.phase_stats(name)
-    vbs  = bowl_analytics.vs_batting_style(name)
-    et   = bowl_analytics.economy_trend(name)
-    wdp  = bowl_analytics.wicket_delivery_profile(name)
-    tgt  = bowl_analytics.best_batsmen_to_target(name)
-
-    charts = {}
-
-    charts['strength_heat'] = zone_heatmap_json(sz, 'success_score',
-        'Strength Zone Map (High = Economy + Wickets)', 'Greens')
-
-    charts['weakness_heat'] = zone_heatmap_json(wz, 'weakness_score',
-        'Weakness Zone Map (High = Leaks Runs)', 'Reds')
-
-    if not ps.empty:
-        fig = make_subplots(rows=1, cols=3,
-                             subplot_titles=['Economy','Wicket %','Dot Ball %'])
-        colors = {'Powerplay':'#2ecc71','Middle':'#e67e22','Death':'#e74c3c'}
-        for i, col in enumerate(['economy','wicket_pct','dot_pct'], 1):
-            fig.add_trace(go.Bar(
-                x=ps['match_phase'], y=ps[col],
-                marker_color=[colors.get(p,'#999') for p in ps['match_phase']],
-                text=ps[col].round(2), textposition='outside',
-                showlegend=False), row=1, col=i)
-        fig.update_layout(title='Phase Performance', height=360,
-                           margin=dict(l=10,r=10,t=40,b=10))
-        charts['phase'] = _fig_to_json(fig)
-
-    if not et.empty:
-        fig = px.line(et, x='over_int', y='economy', markers=True,
-                      title='Economy Trend Across Overs',
-                      labels={'over_int':'Over','economy':'Economy Rate'})
-        fig.add_hline(y=et['economy'].mean(), line_dash='dot',
-                      line_color='gray', annotation_text='Average')
-        fig.add_vrect(x0=16, x1=20, fillcolor='lightsalmon', opacity=0.2,
-                      layer='below', line_width=0, annotation_text='Death')
-        fig.update_layout(margin=dict(l=10,r=10,t=40,b=10), height=320)
-        charts['econ_trend'] = _fig_to_json(fig)
-
-    if not vbs.empty:
-        fig = make_subplots(rows=1, cols=2, subplot_titles=['Economy','Wicket %'])
-        clrs = ['#3498db','#e74c3c']
-        for i, col in enumerate(['economy','wicket_pct'], 1):
-            fig.add_trace(go.Bar(x=vbs['Batsman_Batting_Style'], y=vbs[col],
-                                  marker_color=clrs, text=vbs[col],
-                                  textposition='outside', showlegend=False), row=1, col=i)
-        fig.update_layout(title='vs LHB vs RHB', height=340,
-                           margin=dict(l=10,r=10,t=40,b=10))
-        charts['vs_style'] = _fig_to_json(fig)
-
-    if not wdp.empty:
-        top = wdp.head(10).copy()
-        top['zone'] = top['pitchLine'].str[:8] + ' / ' + top['pitchLength'].str[:5] + ' / ' + top['match_phase']
-        fig = px.bar(top, x='zone', y='wicket_pct',
-                     color='wickets', color_continuous_scale='Reds',
-                     title='Top Wicket-Taking Zones',
-                     text=top['wickets'], labels={'zone':'Zone','wicket_pct':'Wicket %'})
-        fig.update_traces(textposition='outside')
-        fig.update_layout(margin=dict(l=10,r=10,t=40,b=80),
-                           height=360, xaxis_tickangle=-30)
-        charts['wicket_zones'] = _fig_to_json(fig)
-
-    if not tgt.empty:
-        fig = px.bar(tgt.head(8), x='Batsman_Name', y='success_index_scaled',
-                     color='performance_label', title='Best Batsmen to Target',
-                     hover_data=['economy_rate','wicket_pct'])
-        fig.update_layout(margin=dict(l=10,r=10,t=40,b=60),
-                           height=340, xaxis_tickangle=-25)
-        charts['targets'] = _fig_to_json(fig)
-
-    return render_template('bowler_report.html',
-                            name=stats['full_name'],
-                            stats=stats,
-                            charts=charts,
-                            sz=sz.head(3).to_dict('records') if not sz.empty else [],
-                            wz=wz.head(3).to_dict('records') if not wz.empty else [])
+    """Seamless forward to master Bowling Analytics."""
+    return redirect(f"/bowling?player={name.strip()}")
 
 
 @app.route('/matchup')
 def matchup():
-    """Matchup report: ?bat=Virat Kohli&bowl_style=right-arm fast&phase=Middle"""
-    bat_name   = request.args.get('bat', '').strip()
-    bowl_style = request.args.get('bowl_style', 'right-arm fast').strip()
-    phase      = request.args.get('phase', 'Middle').strip()
+    """
+    Matchup & Opponent Intelligence Route.
+    Supports 3 confrontation modes:
+    1. 'h2h'       : Batter vs Bowler head-to-head duel
+    2. 'bat_team'  : Batter vs Opposition country
+    3. 'bowl_team' : Bowler vs Opposition country
+    """
+    mode   = request.args.get('mode', 'h2h').strip()
+    batter = request.args.get('batter', 'V Kohli').strip()
+    bowler = request.args.get('bowler', 'JM Anderson').strip()
+    team   = request.args.get('team', 'Australia').strip()
 
-    batsmen = all_batsman_names()
+    all_teams = match_engine.get_all_teams()
+    overview = None
+    format_plot = None
+    phase_plot = None
+    shots_plot = None
+    bowlers_plot = None
+    batters_plot = None
+    dismissal_plot = None
+    dismissals_log = []
 
-    if not bat_name:
-        return render_template('matchup.html', batsmen=batsmen,
-                                report=None, bat_name='', bowl_style=bowl_style, phase=phase)
+    if mode == 'h2h':
+        overview = match_engine.get_h2h_overview(batter, bowler)
+        if overview:
+            df_format = match_engine.get_h2h_format_splits(batter, bowler)
+            format_plot = match_plots.create_h2h_format_plot(df_format)
+            df_phase = match_engine.get_h2h_phase_splits(batter, bowler)
+            phase_plot = match_plots.create_h2h_phase_plot(df_phase)
+            shots = match_engine.get_h2h_shots(batter, bowler)
+            shots_plot = match_plots.create_h2h_shots_plot(shots)
+            dismissals_log = match_engine.get_h2h_dismissals_log(batter, bowler)
 
-    report = strat.full_matchup_report(bat_name, phase, bowl_style)
+    elif mode == 'bat_team':
+        overview = match_engine.get_batter_vs_team_overview(batter, team)
+        if overview:
+            df_format = match_engine.get_batter_vs_team_format_splits(batter, team)
+            format_plot = match_plots.create_bat_team_format_plot(df_format)
+            df_bowlers = match_engine.get_batter_vs_team_bowlers(batter, team, limit=8)
+            bowlers_plot = match_plots.create_bat_team_bowlers_plot(df_bowlers)
+            df_phase = match_engine.get_batter_vs_team_phase_splits(batter, team)
+            phase_plot = match_plots.create_bat_team_phase_plot(df_phase)
 
-    # Best bowlers vs this batsman
-    best_bowlers = strat.find_best_bowler_vs(bat_name, top_n=8)
-    bb_chart = None
-    if not best_bowlers.empty:
-        fig = px.bar(best_bowlers, x='Bowler_Name', y='success_index_scaled',
-                     color='Bowler_Bowling_Style',
-                     hover_data=['economy_rate','wicket_pct'],
-                     title=f'Most Effective Bowlers vs {bat_name}')
-        fig.update_layout(margin=dict(l=10,r=10,t=40,b=60),
-                           height=340, xaxis_tickangle=-25)
-        bb_chart = _fig_to_json(fig)
+    elif mode == 'bowl_team':
+        overview = match_engine.get_bowler_vs_team_overview(bowler, team)
+        if overview:
+            df_format = match_engine.get_bowler_vs_team_format_splits(bowler, team)
+            format_plot = match_plots.create_bowl_team_format_plot(df_format)
+            df_batters = match_engine.get_bowler_vs_team_batters(bowler, team, limit=8)
+            batters_plot = match_plots.create_bowl_team_batters_plot(df_batters)
+            df_dismissals = match_engine.get_bowler_vs_team_dismissals(bowler, team)
+            dismissal_plot = match_plots.create_bowl_team_dismissal_plot(df_dismissals)
 
-    return render_template('matchup.html',
-                            batsmen=batsmen,
-                            report=report,
-                            bat_name=bat_name,
-                            bowl_style=bowl_style,
-                            phase=phase,
-                            bb_chart=bb_chart)
+    famous_clashes = [
+        {"title": "V Kohli vs JM Anderson", "batter": "V Kohli", "bowler": "JM Anderson", "mode": "h2h"},
+        {"title": "RG Sharma vs TA Boult", "batter": "RG Sharma", "bowler": "TA Boult", "mode": "h2h"},
+        {"title": "SPD Smith vs SCJ Broad", "batter": "SPD Smith", "bowler": "SCJ Broad", "mode": "h2h"},
+        {"title": "DA Warner vs R Ashwin", "batter": "DA Warner", "bowler": "R Ashwin", "mode": "h2h"},
+        {"title": "JC Buttler vs JJ Bumrah", "batter": "JC Buttler", "bowler": "JJ Bumrah", "mode": "h2h"},
+        {"title": "V Kohli vs Australia", "batter": "V Kohli", "team": "Australia", "mode": "bat_team"},
+        {"title": "RG Sharma vs Pakistan", "batter": "RG Sharma", "team": "Pakistan", "mode": "bat_team"},
+        {"title": "JJ Bumrah vs Australia", "bowler": "JJ Bumrah", "team": "Australia", "mode": "bowl_team"},
+        {"title": "R Ashwin vs England", "bowler": "R Ashwin", "team": "England", "mode": "bowl_team"},
+    ]
+
+    return render_template(
+        'matchup.html',
+        mode=mode,
+        batter=batter,
+        bowler=bowler,
+        team=team,
+        all_teams=all_teams,
+        overview=overview,
+        format_plot=format_plot,
+        phase_plot=phase_plot,
+        shots_plot=shots_plot,
+        bowlers_plot=bowlers_plot,
+        batters_plot=batters_plot,
+        dismissal_plot=dismissal_plot,
+        dismissals_log=dismissals_log,
+        famous_clashes=famous_clashes,
+    )
 
 
 @app.route('/insights')
 def insights():
-    """Global insights dashboard."""
-    df = get_df()
-    charts = {}
+    """Global Cricket Insights & Historical Evolution Dashboard."""
+    # Format selection for deep-dive section (defaults to Test)
+    fmt_raw = request.args.get('format', 'Test').strip()
+    selected_format = fmt_raw if fmt_raw in ('Test', 'ODI', 'T20I') else 'Test'
 
-    # Delivery outcomes pie
-    outcomes = {
-        'Dot Ball': int((df['run'] == 0).sum()),
-        'Single/Double': int(((df['run'] >= 1) & (df['isBoundary'] == 0) & (df['isWicket'] == 0)).sum()),
-        'Boundary': int(df['isBoundary'].sum()),
-        'Wicket': int(df['isWicket'].sum())
-    }
-    fig = px.pie(names=list(outcomes.keys()), values=list(outcomes.values()),
-                  title='Overall Delivery Outcome Distribution',
-                  color_discrete_sequence=px.colors.qualitative.Safe, hole=0.35)
-    fig.update_layout(margin=dict(l=10,r=10,t=40,b=10), height=320)
-    charts['outcomes'] = _fig_to_json(fig)
+    team = request.args.get('team', 'All Teams').strip()
+    venue = request.args.get('venue', 'All Venues').strip()
+    yr_min_str = request.args.get('year_min', '2001').strip()
+    yr_max_str = request.args.get('year_max', '2026').strip()
 
-    # Phase avg runs
-    phase_stats = df.groupby('match_phase').agg(
-        avg_run=('run','mean'), bdry=('isBoundary','mean'),
-        wkt=('isWicket','mean'), dot=('run', lambda x:(x==0).mean())
-    ).reindex(['Powerplay','Middle','Death']).reset_index()
-    phase_stats[['bdry','wkt','dot']] *= 100
+    try:
+        yr_min = int(yr_min_str)
+    except (ValueError, TypeError):
+        yr_min = 2001
 
-    fig = make_subplots(rows=1, cols=4,
-        subplot_titles=['Avg Runs/Ball','Boundary %','Wicket %','Dot Ball %'])
-    colors = ['#2ecc71','#e67e22','#e74c3c']
-    for i, col in enumerate(['avg_run','bdry','wkt','dot'], 1):
-        fig.add_trace(go.Bar(x=phase_stats['match_phase'], y=phase_stats[col].round(2),
-                              marker_color=colors, showlegend=False,
-                              text=phase_stats[col].round(2), textposition='outside'),
-                      row=1, col=i)
-    fig.update_layout(title='Phase Comparison', height=380,
-                       margin=dict(l=10,r=10,t=40,b=10))
-    charts['phase_compare'] = _fig_to_json(fig)
+    try:
+        yr_max = int(yr_max_str)
+    except (ValueError, TypeError):
+        yr_max = 2026
 
-    # Pitch zone heatmap avg runs
-    pivot_run = df.pivot_table('run', index='pitchLength', columns='pitchLine', aggfunc='mean')
-    fig = px.imshow(pivot_run.round(2), text_auto='.2f', color_continuous_scale='YlOrRd',
-                     title='Avg Runs — Pitch Length × Line', aspect='auto')
-    fig.update_layout(margin=dict(l=10,r=10,t=40,b=10), height=320)
-    charts['zone_run'] = _fig_to_json(fig)
+    filter_opts = ins_engine.get_filter_options()
 
-    # Pitch zone heatmap wicket%
-    pivot_wkt = df.pivot_table('isWicket', index='pitchLength', columns='pitchLine',
-                                 aggfunc='mean') * 100
-    fig = px.imshow(pivot_wkt.round(2), text_auto='.2f', color_continuous_scale='Reds',
-                     title='Wicket % — Pitch Length × Line', aspect='auto')
-    fig.update_layout(margin=dict(l=10,r=10,t=40,b=10), height=320)
-    charts['zone_wkt'] = _fig_to_json(fig)
+    # ── Top Section: Multi-Format Global Macro Comparisons ──────────
+    kpis = ins_engine.get_executive_kpis("All Formats", team, venue, yr_min, yr_max)
+    format_matrix = ins_engine.get_format_comparison_matrix(team, venue, yr_min, yr_max)
+    fmt_bars_plot = ins_plots.create_format_comparison_bars(format_matrix)
+    bat_acc_all = ins_engine.get_batting_accumulation_dna("All Formats", team, venue, yr_min, yr_max)
+    acc_plot = ins_plots.create_batting_accumulation_stacked_plot(bat_acc_all['yearly'])
+    toss_chase_all = ins_engine.get_toss_and_chasing_analytics("All Formats", team, venue, yr_min, yr_max)
+    era_matrix = ins_engine.get_era_comparison("All Formats", team, venue)
 
-    # Top bowler styles
-    bs = get_bowler_stats()
-    bs_plot = bs[bs['balls_bowled'] >= 50].copy()
-    fig = px.scatter(bs_plot, x='dot_ball_pct', y='wicket_pct',
-                      size='balls_bowled', color='success_index',
-                      hover_name='Bowler_Name', color_continuous_scale='RdYlGn',
-                      title='Bowler: Dot Ball % vs Wicket % (bubble=deliveries, colour=success)', labels={'dot_ball_pct':'Dot Ball %','wicket_pct':'Wicket %'})
-    fig.update_layout(margin=dict(l=10,r=10,t=40,b=10), height=360)
-    charts['bowler_scatter'] = _fig_to_json(fig)
+    # ── Bottom Section: Format-Specific Visualizations & Dynamics ───
+    fmt_scoring = ins_engine.get_yearly_scoring_evolution(selected_format, team, venue, yr_min, yr_max)
+    rr_plot = ins_plots.create_run_rate_evolution_plot(fmt_scoring['by_format'], selected_format)
+    bdry_plot = ins_plots.create_boundary_evolution_plot(fmt_scoring['by_format'])
 
-    # Over-by-over run rate
-    df['over_int'] = df['oversActual'].astype(int)
-    over_stats = df.groupby('over_int').agg(
-        avg_run=('run','mean'), bdry=('isBoundary','mean')
-    ).reset_index()
-    over_stats['bdry'] *= 100
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
-                         subplot_titles=['Avg Runs/Delivery','Boundary %'])
-    fig.add_trace(go.Scatter(x=over_stats['over_int'], y=over_stats['avg_run'],
-                              mode='lines+markers', name='Avg Runs',
-                              line=dict(color='royalblue')), row=1, col=1)
-    fig.add_trace(go.Scatter(x=over_stats['over_int'], y=over_stats['bdry'],
-                              mode='lines', name='Boundary %',
-                              line=dict(color='tomato')), row=2, col=1)
-    for row in [1, 2]:
-        fig.add_vrect(x0=1, x1=6, fillcolor='lightgreen', opacity=0.12,
-                       layer='below', line_width=0, row=row, col=1)
-        fig.add_vrect(x0=16, x1=20, fillcolor='lightsalmon', opacity=0.15,
-                       layer='below', line_width=0, row=row, col=1)
-    fig.update_layout(title='Over-by-Over Trends', height=480,
-                       margin=dict(l=10,r=10,t=40,b=10), xaxis2_title='Over')
-    charts['over_trend'] = _fig_to_json(fig)
+    test_decay_plot = None
+    test_draw_plot = None
+    test_targets_plot = None
+    target_plot = None
 
-    return render_template('insights.html', charts=charts)
+    if selected_format == 'Test':
+        scoring_plot = ins_plots.create_historical_scoring_plot(fmt_scoring['by_innings'], 'Test')
+        test_data = ins_engine.get_test_4innings_evolution(team, venue, yr_min, yr_max)
+        test_decay_plot = ins_plots.create_test_innings_decay_plot(test_data['summary_innings'])
+        test_draw_plot = ins_plots.create_test_draw_trajectory_plot(test_data['draw_trajectory'])
+        test_targets_plot = ins_plots.create_test_chasing_brackets_plot(test_data['target_pursuits'])
+    else:
+        scoring_plot = ins_plots.create_historical_scoring_plot(fmt_scoring['by_format'], selected_format)
+        bracket_key = 't20i_brackets' if selected_format == 'T20I' else 'odi_brackets'
+        target_plot = ins_plots.create_target_chasing_plot(toss_chase_all[bracket_key], selected_format)
+
+    # Format-specific bowling and dismissals
+    bowl_data = ins_engine.get_bowling_evolution(selected_format, team, venue, yr_min, yr_max)
+    bowling_plot = ins_plots.create_bowling_evolution_plot(bowl_data['yearly_bowling'])
+    dismissals_plot = ins_plots.create_dismissal_types_donut(bowl_data['dismissal_types'])
+
+    # Format-specific Top Performers for the team / era
+    performers = ins_engine.get_top_performers(selected_format, team, venue, yr_min, yr_max)
+    top_bat_plot = ins_plots.create_top_batters_plot(performers['top_batters'], selected_format)
+    top_bowl_plot = ins_plots.create_top_bowlers_plot(performers['top_bowlers'], selected_format)
+
+    return render_template(
+        'insights.html',
+        filter_options=filter_opts,
+        selected_format=selected_format,
+        selected_team=team,
+        selected_venue=venue,
+        selected_year_min=yr_min,
+        selected_year_max=yr_max,
+        kpis=kpis,
+        format_matrix=format_matrix,
+        dna_format=bat_acc_all['by_format'],
+        toss_summary=toss_chase_all['toss_summary'],
+        era_matrix=era_matrix,
+        scoring_plot=scoring_plot,
+        rr_plot=rr_plot,
+        bdry_plot=bdry_plot,
+        fmt_bars_plot=fmt_bars_plot,
+        test_decay_plot=test_decay_plot,
+        test_draw_plot=test_draw_plot,
+        test_targets_plot=test_targets_plot,
+        target_plot=target_plot,
+        acc_plot=acc_plot,
+        bowling_plot=bowling_plot,
+        dismissals_plot=dismissals_plot,
+        top_batters=performers['top_batters'],
+        top_bowlers=performers['top_bowlers'],
+        top_bat_plot=top_bat_plot,
+        top_bowl_plot=top_bowl_plot,
+    )
+
+
+# ── Batting Analytics Route ───────────────────────────────────────────────────
+
+@app.route('/batting')
+def batting_analytics():
+    player_name = request.args.get('player', 'V Kohli').strip()
+    match_type = request.args.get('match_type', 'All').strip()
+    phase = request.args.get('phase', 'All').strip()
+
+    is_test_format = (match_type == 'Test')
+    is_all_format  = (match_type == 'All')
+    effective_phase = 'All' if is_test_format else phase
+
+    overview = bat_engine.get_batter_overview(player_name, match_type=match_type, match_phase=effective_phase)
+
+    # Generate Plotly charts
+    phase_plot = None
+    test_inning_plot = None
+    chase_plot = None
+    team_plot = None
+    dismissal_plot = None
+    venue_plot = None
+
+    if overview:
+        if is_test_format:
+            # Test: innings 1-4 progression only — no phase chart, no chase matrix
+            df_test = bat_engine.get_batter_test_inning_splits(player_name)
+            test_inning_plot = bat_plots.create_test_inning_plot(df_test)
+
+        elif is_all_format:
+            # All Formats: mixing formats makes phase/chase meaningless — skip both
+            pass
+
+        else:
+            # T20I or ODI: show phase profile AND chase matrix
+            df_phase = bat_engine.get_batter_phase_splits(player_name, match_type=match_type)
+            phase_plot = bat_plots.create_phase_plot(df_phase)
+
+            df_chase = bat_engine.get_batter_chase_splits(player_name, match_type=match_type)
+            chase_plot = bat_plots.create_chase_plot(df_chase)
+
+        # Always show these three (filtered to whichever match_type was selected)
+        df_team = bat_engine.get_batter_opponent_team_splits(player_name, match_type=match_type)
+        team_plot = bat_plots.create_opponent_team_plot(df_team)
+
+        df_dismissal = bat_engine.get_batter_dismissal_breakdown(player_name, match_type=match_type)
+        dismissal_plot = bat_plots.create_dismissal_plot(df_dismissal)
+
+        df_venue = bat_engine.get_batter_venue_splits(player_name, match_type=match_type)
+        venue_plot = bat_plots.create_venue_plot(df_venue)
+
+    popular_batters = [
+        "V Kohli", "RG Sharma", "JC Buttler", "DA Warner", "Babar Azam",
+        "SA Yadav", "H Klaasen", "KL Rahul", "MS Dhoni", "GJ Maxwell",
+        "Q de Kock", "AB de Villiers", "CH Gayle", "AD Russell", "SPD Smith", "JE Root", "KS Williamson"
+    ]
+
+    return render_template(
+        'batting_analytics.html',
+        selected_batter=player_name,
+        selected_format=match_type,
+        selected_phase=effective_phase,
+        is_test_format=is_test_format,
+        is_all_format=is_all_format,
+        overview=overview,
+        phase_plot=phase_plot,
+        test_inning_plot=test_inning_plot,
+        chase_plot=chase_plot,
+        team_plot=team_plot,
+        dismissal_plot=dismissal_plot,
+        venue_plot=venue_plot,
+        popular_batters=popular_batters,
+    )
+
+
+@app.route('/api/search_batters')
+def api_search_batters():
+    q = request.args.get('q', '').strip()
+    results = bat_engine.search_batsmen(q, limit=12)
+    return jsonify(results)
+
+
+# ── Bowling Analytics Route ───────────────────────────────────────────────────
+
+@app.route('/bowling')
+def bowling_analytics():
+    player_name = request.args.get('player', 'JJ Bumrah').strip()
+    match_type = request.args.get('match_type', 'All').strip()
+    phase = request.args.get('phase', 'All').strip()
+
+    is_test_format = (match_type == 'Test')
+    is_all_format  = (match_type == 'All')
+    effective_phase = 'All' if (is_test_format or is_all_format) else phase
+
+    overview = bowl_engine.get_bowler_overview(
+        player_name, match_type=match_type, match_phase=effective_phase
+    )
+
+    # Initialize Plotly charts
+    phase_plot = None
+    test_inning_plot = None
+    defend_plot = None
+    team_plot = None
+    dismissal_plot = None
+    venue_plot = None
+
+    if overview:
+        if is_test_format:
+            # Test: Innings 1-4 progression only — no phase breakdown or defending matrix
+            df_test = bowl_engine.get_bowler_test_inning_splits(player_name)
+            test_inning_plot = bowl_plots.create_bowler_test_inning_plot(df_test)
+
+        elif is_all_format:
+            # All Formats: cross-format comparison only (no phase or defending split)
+            pass
+
+        else:
+            # T20I or ODI: show phase impact profile AND defending matrix
+            df_phase = bowl_engine.get_bowler_phase_splits(player_name, match_type=match_type)
+            phase_plot = bowl_plots.create_bowler_phase_plot(df_phase)
+
+            df_defend = bowl_engine.get_bowler_defending_splits(player_name, match_type=match_type)
+            defend_plot = bowl_plots.create_bowler_defending_plot(df_defend)
+
+        # Universal charts (filtered to selected match_type)
+        df_dismissal = bowl_engine.get_bowler_dismissal_breakdown(player_name, match_type=match_type)
+        dismissal_plot = bowl_plots.create_bowler_dismissal_plot(df_dismissal)
+
+        df_team = bowl_engine.get_bowler_opponent_splits(player_name, match_type=match_type)
+        team_plot = bowl_plots.create_bowler_opponent_plot(df_team)
+
+        df_venue = bowl_engine.get_bowler_venue_splits(player_name, match_type=match_type)
+        venue_plot = bowl_plots.create_bowler_venue_plot(df_venue)
+
+    popular_bowlers = [
+        "JJ Bumrah", "R Ashwin", "Rashid Khan", "MA Starc", "TA Boult",
+        "K Rabada", "RA Jadeja", "Shaheen Shah Afridi", "PWA Cummins",
+        "Kuldeep Yadav", "YS Chahal", "Mohammed Shami", "B Kumar",
+        "SL Malinga", "DW Steyn", "JM Anderson", "SCJ Broad"
+    ]
+
+    return render_template(
+        'bowling_analytics.html',
+        selected_bowler=player_name,
+        selected_format=match_type,
+        selected_phase=effective_phase,
+        is_test_format=is_test_format,
+        is_all_format=is_all_format,
+        overview=overview,
+        phase_plot=phase_plot,
+        test_inning_plot=test_inning_plot,
+        defend_plot=defend_plot,
+        team_plot=team_plot,
+        dismissal_plot=dismissal_plot,
+        venue_plot=venue_plot,
+        popular_bowlers=popular_bowlers,
+    )
+
+
+@app.route('/api/search_bowlers')
+def api_search_bowlers():
+    q = request.args.get('q', '').strip()
+    results = bowl_engine.search_bowlers(q, limit=12)
+    return jsonify(results)
+
+
+# ── Team & Venue Intelligence Route ──────────────────────────────────────────
+
+@app.route('/venues')
+def venues():
+    """
+    Team & Venue Intelligence Route.
+    Supports 2 views:
+    1. 'venue' : Stadium / Ground Profiler
+    2. 'team'  : National Team Dynamics & Opponents Record
+    """
+    tab = request.args.get('tab', 'venue').strip()
+    selected_venue = request.args.get('venue', 'Melbourne Cricket Ground').strip()
+    selected_team = request.args.get('team', 'India').strip()
+    match_type = request.args.get('format', 'All').strip()
+
+    popular_venues = venue_engine.get_popular_venues()
+    popular_teams = venue_engine.get_popular_teams()
+
+    venue_overview = None
+    venue_outcomes_plot = None
+    venue_phase_plot = None
+    test_decay_plot = None
+    test_duration_plot = None
+    format_comp_plot = None
+    venue_top_batters = []
+    venue_top_bowlers = []
+
+    team_overview = None
+    team_opponents_plot = None
+    team_phase_plot = None
+    team_fortress_plot = None
+
+    if tab == 'venue':
+        venue_overview = venue_engine.get_venue_overview(selected_venue, match_type=match_type)
+        if venue_overview:
+            if venue_overview.get("is_test"):
+                df_test_inn = venue_engine.get_venue_test_innings(selected_venue)
+                test_decay_plot = venue_plots.create_test_innings_decay_plot(df_test_inn)
+                durations = venue_engine.get_venue_test_durations(selected_venue)
+                test_duration_plot = venue_plots.create_test_duration_plot(durations)
+                venue_top_batters = venue_engine.get_venue_top_batters(selected_venue, match_type="Test", limit=5)
+                venue_top_bowlers = venue_engine.get_venue_top_bowlers(selected_venue, match_type="Test", limit=5)
+            elif venue_overview.get("is_all"):
+                format_comp_plot = venue_plots.create_venue_format_comparison_plot(venue_overview.get("format_cards", []))
+                venue_top_batters = venue_engine.get_venue_top_batters(selected_venue, match_type="All", limit=5)
+                venue_top_bowlers = venue_engine.get_venue_top_bowlers(selected_venue, match_type="All", limit=5)
+            else:
+                outcomes = venue_engine.get_venue_outcomes(selected_venue, match_type=match_type)
+                venue_outcomes_plot = venue_plots.create_venue_outcomes_plot(outcomes)
+                df_phase = venue_engine.get_venue_phase_splits(selected_venue, match_type=match_type)
+                venue_phase_plot = venue_plots.create_venue_phase_plot(df_phase)
+                venue_top_batters = venue_engine.get_venue_top_batters(selected_venue, match_type=match_type, limit=5)
+                venue_top_bowlers = venue_engine.get_venue_top_bowlers(selected_venue, match_type=match_type, limit=5)
+
+    elif tab == 'team':
+        team_overview = venue_engine.get_team_overview(selected_team, match_type=match_type)
+        if team_overview:
+            df_opp = venue_engine.get_team_opponents_record(selected_team, match_type=match_type, limit=10)
+            team_opponents_plot = venue_plots.create_team_opponents_plot(df_opp)
+            df_phase = venue_engine.get_team_phase_dna(selected_team, match_type=match_type)
+            team_phase_plot = venue_plots.create_team_phase_plot(df_phase)
+            df_fortress = venue_engine.get_team_fortress_venues(selected_team, match_type=match_type, limit=8)
+            team_fortress_plot = venue_plots.create_team_fortress_plot(df_fortress)
+
+    return render_template(
+        'venue_analytics.html',
+        tab=tab,
+        selected_venue=selected_venue,
+        selected_team=selected_team,
+        selected_format=match_type,
+        popular_venues=popular_venues,
+        popular_teams=popular_teams,
+        venue_overview=venue_overview,
+        venue_outcomes_plot=venue_outcomes_plot,
+        venue_phase_plot=venue_phase_plot,
+        test_decay_plot=test_decay_plot,
+        test_duration_plot=test_duration_plot,
+        format_comp_plot=format_comp_plot,
+        venue_top_batters=venue_top_batters,
+        venue_top_bowlers=venue_top_bowlers,
+        team_overview=team_overview,
+        team_opponents_plot=team_opponents_plot,
+        team_phase_plot=team_phase_plot,
+        team_fortress_plot=team_fortress_plot,
+    )
+
+
+# ── Pre-Game Strategy & Match Simulator Route ─────────────────────────────────
+
+@app.route('/simulator')
+@app.route('/strategy')
+def simulator():
+    """
+    Pre-Game Strategy & Match Outcome Simulator.
+    Simulates win probability, pitch behavior, and conditions-smart Ideal Playing XIs.
+    """
+    team1 = request.args.get('team1', 'India').strip()
+    team2 = request.args.get('team2', 'Australia').strip()
+    venue = request.args.get('venue', 'Melbourne Cricket Ground').strip()
+    match_type = request.args.get('format', 'T20I').strip()
+    era = request.args.get('era', 'current').strip()
+
+    all_teams = sim_engine.get_all_popular_teams()
+    all_venues = sim_engine.get_all_popular_venues()
+
+    # Pitch & Conditions Analysis (era-filtered)
+    pitch = sim_engine.get_venue_pitch_profile(venue, match_type=match_type, era=era)
+    pitch_plot = sim_plots.create_pitch_distribution_plot(pitch)
+
+    # Condition-smart Ideal Playing XI Selection for both teams
+    team1_xi = sim_engine.select_ideal_xi(team1, team2, venue, match_type=match_type, era=era)
+    team2_xi = sim_engine.select_ideal_xi(team2, team1, venue, match_type=match_type, era=era)
+
+    # Matchup Outcome Simulation
+    sim_data = sim_engine.simulate_matchup(team1, team2, team1_xi, team2_xi, venue, match_type=match_type, era=era)
+    win_plot = sim_plots.create_win_probability_plot(sim_data)
+    scores_plot = sim_plots.create_projected_scores_plot(sim_data)
+
+    return render_template(
+        'simulator.html',
+        team1=team1,
+        team2=team2,
+        venue=venue,
+        format=match_type,
+        era=era,
+        all_teams=all_teams,
+        all_venues=all_venues,
+        pitch=pitch,
+        pitch_plot=pitch_plot,
+        scores_plot=scores_plot,
+        team1_xi=team1_xi,
+        team2_xi=team2_xi,
+        sim_data=sim_data,
+        win_plot=win_plot,
+    )
 
 
 # ── API routes ────────────────────────────────────────────────────────────────
 
 @app.route('/api/players')
 def api_players():
-    return jsonify({'batsmen': all_batsman_names(), 'bowlers': all_bowler_names()})
+    global _CACHED_BATSMEN, _CACHED_BOWLERS
+    if _CACHED_BATSMEN is None or _CACHED_BOWLERS is None:
+        _CACHED_BATSMEN, _CACHED_BOWLERS = _get_top_player_names()
+    return jsonify({'batsmen': _CACHED_BATSMEN, 'bowlers': _CACHED_BOWLERS})
 
 
 @app.route('/api/batsman/<path:name>')
 def api_batsman(name):
-    summary = bat_analytics.pregame_summary(name.strip())
-    if 'error' in summary:
-        return jsonify(summary), 404
-    return jsonify(summary)
+    overview = bat_engine.get_batter_overview(name.strip())
+    if not overview:
+        return jsonify({'error': f'Batsman "{name}" not found'}), 404
+    return jsonify(overview)
 
 
 @app.route('/api/bowler/<path:name>')
 def api_bowler(name):
-    summary = bowl_analytics.pregame_summary(name.strip())
-    if 'error' in summary:
-        return jsonify(summary), 404
-    return jsonify(summary)
+    overview = bowl_engine.get_bowler_overview(name.strip())
+    if not overview:
+        return jsonify({'error': f'Bowler "{name}" not found'}), 404
+    return jsonify(overview)
 
 
 @app.errorhandler(404)

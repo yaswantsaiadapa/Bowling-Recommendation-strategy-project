@@ -1,161 +1,966 @@
 {% extends "base.html" %}
-{% block title %}Matchup Analysis{% endblock %}
+
+{% block title %}Matchup &amp; Opponent Intelligence — Cricket Analytics{% endblock %}
+
 {% block content %}
 
-<div class="page-header">
-  <a href="/" class="back-link">← Home</a>
-  <h1>⚔️ Matchup Analysis</h1>
-  <p class="subtitle">Generate a complete bowling strategy against any batsman. Combines threat assessment, optimal line & length recommendations, field placement suggestions, and historical head-to-head data — all customized by bowling style and match phase.</p>
+{# ═══════════════════════════════════════════════════════════════
+   PAGE HEADER
+═══════════════════════════════════════════════════════════════ #}
+<div class="match-page-header">
+  <div class="match-header-left">
+    <span class="match-eyebrow">⚔️ Opponent &amp; Duel Intelligence</span>
+    <h1 class="match-title">Matchup Analysis Engine</h1>
+    <p class="match-subtitle">Deep confrontation analytics across 4.8 million deliveries in Test, ODI, and T20I cricket.</p>
+  </div>
 </div>
 
-<div class="card form-card">
-  <form method="GET" action="/matchup">
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Batsman (Full Name)</label>
-        <div class="autocomplete-wrapper" style="margin-bottom:0">
-          <span class="autocomplete-icon">🔍</span>
-          <input type="text" name="bat" id="matchup-bat-input" class="autocomplete-input"
-                 value="{{ bat_name }}" placeholder="e.g. Virat Kohli" autocomplete="off" style="margin-bottom:0">
-          <div id="matchup-bat-dropdown" class="autocomplete-dropdown"></div>
+{# ═══════════════════════════════════════════════════════════════
+   MODE SELECTOR TABS
+═══════════════════════════════════════════════════════════════ #}
+<div class="match-mode-tabs">
+  <a href="/matchup?mode=h2h&batter={{ batter }}&bowler={{ bowler }}" class="match-tab {% if mode == 'h2h' %}active{% endif %}">
+    ⚔️⚔️ Batter vs Bowler Duel
+  </a>
+  <a href="/matchup?mode=bat_team&batter={{ batter }}&team={{ team }}" class="match-tab {% if mode == 'bat_team' %}active{% endif %}">
+    🏏 Batter vs Team Lineup
+  </a>
+  <a href="/matchup?mode=bowl_team&bowler={{ bowler }}&team={{ team }}" class="match-tab {% if mode == 'bowl_team' %}active{% endif %}">
+    🎯 Bowler vs Team Lineup
+  </a>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════
+   SEARCH & FILTER BAR
+═══════════════════════════════════════════════════════════════ #}
+<div class="match-filter-bar">
+  <form method="GET" action="/matchup" id="matchup-form">
+    <input type="hidden" name="mode" value="{{ mode }}">
+
+    <div class="match-filter-row">
+
+      {# Mode 1: H2H (Batter + Bowler) #}
+      {% if mode == 'h2h' %}
+      <div class="match-field match-field-player">
+        <label for="batter">Batsman</label>
+        <div class="match-input-wrap">
+          <span class="match-input-icon">🏏</span>
+          <input
+            type="text"
+            id="batter"
+            name="batter"
+            value="{{ batter }}"
+            placeholder="Search batter (e.g. V Kohli)..."
+            autocomplete="off"
+            required
+            class="match-input"
+          >
+          <div id="batter-dropdown" class="autocomplete-dropdown"></div>
         </div>
       </div>
-      <div class="form-group">
-        <label>Bowling Style</label>
-        <select name="bowl_style" class="search-input" style="margin-bottom:0">
-          {% set styles = ['right-arm fast','right-arm fast-medium','right-arm medium-fast',
-            'right-arm medium','right-arm offbreak','legbreak','legbreak googly',
-            'left-arm fast','left-arm fast-medium','left-arm medium-fast',
-            'left-arm medium','slow left-arm orthodox','left-arm wrist-spin'] %}
-          {% for s in styles %}
-            <option value="{{ s }}" {% if s == bowl_style %}selected{% endif %}>{{ s }}</option>
+
+      <div class="match-field match-field-player">
+        <label for="bowler">Bowler</label>
+        <div class="match-input-wrap">
+          <span class="match-input-icon">🎯</span>
+          <input
+            type="text"
+            id="bowler"
+            name="bowler"
+            value="{{ bowler }}"
+            placeholder="Search bowler (e.g. JJ Bumrah)..."
+            autocomplete="off"
+            required
+            class="match-input"
+          >
+          <div id="bowler-dropdown" class="autocomplete-dropdown"></div>
+        </div>
+      </div>
+
+      {# Mode 2: Batter vs Team #}
+      {% elif mode == 'bat_team' %}
+      <div class="match-field match-field-player">
+        <label for="batter">Batsman</label>
+        <div class="match-input-wrap">
+          <span class="match-input-icon">🏏</span>
+          <input
+            type="text"
+            id="batter"
+            name="batter"
+            value="{{ batter }}"
+            placeholder="Search batter (e.g. V Kohli)..."
+            autocomplete="off"
+            required
+            class="match-input"
+          >
+          <div id="batter-dropdown" class="autocomplete-dropdown"></div>
+        </div>
+      </div>
+
+      <div class="match-field">
+        <label for="team">Opposition Country</label>
+        <select name="team" id="team" class="match-select">
+          {% for t in all_teams %}
+          <option value="{{ t }}" {% if t == team %}selected{% endif %}>{{ t }}</option>
           {% endfor %}
         </select>
       </div>
-      <div class="form-group">
-        <label>Match Phase</label>
-        <select name="phase" class="search-input" style="margin-bottom:0">
-          {% for p in ['Powerplay','Middle','Death'] %}
-            <option value="{{ p }}" {% if p == phase %}selected{% endif %}>{{ p }}</option>
+
+      {# Mode 3: Bowler vs Team #}
+      {% elif mode == 'bowl_team' %}
+      <div class="match-field match-field-player">
+        <label for="bowler">Bowler</label>
+        <div class="match-input-wrap">
+          <span class="match-input-icon">🎯</span>
+          <input
+            type="text"
+            id="bowler"
+            name="bowler"
+            value="{{ bowler }}"
+            placeholder="Search bowler (e.g. JJ Bumrah)..."
+            autocomplete="off"
+            required
+            class="match-input"
+          >
+          <div id="bowler-dropdown" class="autocomplete-dropdown"></div>
+        </div>
+      </div>
+
+      <div class="match-field">
+        <label for="team">Opposition Country</label>
+        <select name="team" id="team" class="match-select">
+          {% for t in all_teams %}
+          <option value="{{ t }}" {% if t == team %}selected{% endif %}>{{ t }}</option>
           {% endfor %}
         </select>
       </div>
-      <div class="form-group form-submit">
-        <button type="submit" class="btn btn-primary">Generate Strategy →</button>
+      {% endif %}
+
+      {# Submit Button #}
+      <div class="match-field match-field-btn">
+        <button type="submit" class="match-analyze-btn">Analyze Confrontation</button>
       </div>
+
     </div>
   </form>
+
+  {# Famous clashes quick links #}
+  <div class="famous-clashes-row">
+    <span class="famous-label">Famous Duels:</span>
+    {% for clash in famous_clashes %}
+      {% if clash.mode == 'h2h' %}
+      <a href="/matchup?mode=h2h&batter={{ clash.batter }}&bowler={{ clash.bowler }}" class="clash-pill">{{ clash.title }}</a>
+      {% elif clash.mode == 'bat_team' %}
+      <a href="/matchup?mode=bat_team&batter={{ clash.batter }}&team={{ clash.team }}" class="clash-pill">{{ clash.title }}</a>
+      {% elif clash.mode == 'bowl_team' %}
+      <a href="/matchup?mode=bowl_team&bowler={{ clash.bowler }}&team={{ clash.team }}" class="clash-pill">{{ clash.title }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
 </div>
 
-{% if report %}
-
-<div class="card" style="margin-bottom:1rem;border-left:3px solid var(--accent);">
-  <p style="font-size:0.85rem;color:var(--muted);margin:0;">
-    🎯 <strong>Threat & History</strong> are batsman+phase specific — same regardless of bowling style. &nbsp;|&nbsp;
-    🏏 <strong>Bowling Plan & Field</strong> change with every bowling style you select.
-  </p>
+{# ═══════════════════════════════════════════════════════════════
+   EMPTY STATE (NO CONFRONTATION FOUND)
+═══════════════════════════════════════════════════════════════ #}
+{% if not overview %}
+<div class="match-empty">
+  <div class="match-empty-icon">⚔️</div>
+  {% if mode == 'h2h' %}
+  <h3>No confrontation found between {{ batter }} and {{ bowler }}</h3>
+  <p>These two players have either never directly faced each other on strike in international cricket, or bowled zero legal deliveries to one another. Try one of the famous rivalries above!</p>
+  {% elif mode == 'bat_team' %}
+  <h3>No matches found for {{ batter }} against {{ team }}</h3>
+  <p>Try selecting another opposition team or checking player spelling.</p>
+  {% elif mode == 'bowl_team' %}
+  <h3>No matches found for {{ bowler }} against {{ team }}</h3>
+  <p>Try selecting another opposition team or checking bowler spelling.</p>
+  {% endif %}
 </div>
 
-<div class="matchup-grid">
+{# ═══════════════════════════════════════════════════════════════
+   MODE 1: BATTER VS BOWLER RESULTS
+═══════════════════════════════════════════════════════════════ #}
+{% elif mode == 'h2h' %}
 
-  {% for section_key, icon, extra_class, note in [
-      ('THREAT ASSESSMENT',  '🎯', 'card-threat', 'batsman + phase'),
-      ('BOWLING PLAN',       '🏏', 'card-blue',   'changes with style ↻'),
-      ('FIELD PLACEMENT',    '🧩', 'card-green',  'changes with style ↻'),
-      ('HISTORICAL MATCHUP', '📊', 'card-purple', 'top bowlers vs this batsman')
-  ] %}
-    {% set content_data = report.get(section_key, {}) %}
-    <div class="card {{ extra_class }}{% if section_key == 'THREAT ASSESSMENT' %}-{{ content_data.get('Threat Level','').replace(' ','_')|lower }}{% endif %}">
-      <h3>{{ icon }} {{ section_key }} <span class="section-note">{{ note }}</span></h3>
-      <div class="report-grid">
-        {% if content_data is mapping %}
-          {% for k, v in content_data.items() %}
-          <div class="report-row">
-            <span class="report-key">{{ k }}</span>
-            <span class="report-val {% if k == 'Threat Level' %}
-              {% if 'High' in v %}threat-high{% elif 'Medium' in v %}threat-medium{% else %}threat-low{% endif %}
-            {% endif %}">{{ v }}</span>
-          </div>
-          {% endfor %}
-        {% else %}
-          <p class="muted">{{ content_data }}</p>
-        {% endif %}
+<div class="match-player-strip">
+  <div>
+    <h2 class="match-player-name">{{ overview.batter }} <span style="color:var(--muted);font-weight:400">vs</span> {{ overview.bowler }}</h2>
+    <div class="match-player-tags">
+      <span class="match-tag match-tag-duel">Direct Head-to-Head</span>
+      <span class="match-tag match-verdict match-verdict-{{ overview.verdict_color }}">{{ overview.verdict }}</span>
+      <span style="color:var(--muted);font-size:0.85rem;margin-left:0.5rem">{{ overview.verdict_desc }}</span>
+    </div>
+  </div>
+</div>
+
+{# KPI Row #}
+<div class="match-kpi-row">
+  <div class="match-kpi-card">
+    <div class="match-kpi-label">Runs Scored</div>
+    <div class="match-kpi-value match-kpi-blue">{{ "{:,}".format(overview.total_runs) }}</div>
+    <div class="match-kpi-sub">off {{ "{:,}".format(overview.balls_faced) }} balls</div>
+  </div>
+
+  <div class="match-kpi-card">
+    <div class="match-kpi-label">Dismissals</div>
+    <div class="match-kpi-value match-kpi-red">{{ overview.dismissals }}</div>
+    <div class="match-kpi-sub">times dismissed by bowler</div>
+  </div>
+
+  <div class="match-kpi-card">
+    <div class="match-kpi-label">Batting Average</div>
+    <div class="match-kpi-value match-kpi-orange">
+      {% if overview.dismissals > 0 %}{{ overview.batting_average }}{% else %}Unbeaten ({{ overview.total_runs }}){% endif %}
+    </div>
+    <div class="match-kpi-sub">runs per dismissal</div>
+  </div>
+
+  <div class="match-kpi-card">
+    <div class="match-kpi-label">Strike Rate</div>
+    <div class="match-kpi-value match-kpi-green">{{ overview.strike_rate }}</div>
+    <div class="match-kpi-sub">runs per 100 balls</div>
+  </div>
+
+  <div class="match-kpi-card">
+    <div class="match-kpi-label">Dot Ball %</div>
+    <div class="match-kpi-value match-kpi-purple">{{ overview.dot_pct }}%</div>
+    <div class="match-kpi-sub">{{ overview.dot_balls }} dots ({{ overview.boundaries }} boundaries)</div>
+  </div>
+</div>
+
+{# Charts Stack #}
+<div class="match-charts-stack">
+
+  {% if format_plot %}
+  <div class="match-chart-block">
+    <div class="match-chart-meta">
+      <span class="match-chart-num">01</span>
+      <div>
+        <h3 class="match-chart-title">Format-by-Format Rivalry Split</h3>
+        <p class="match-chart-desc">Compares the head-to-head confrontation in Test matches, One-Day Internationals, and T20 Internationals. Bars indicate runs scored while the orange line shows the batsman's scoring velocity. Reveals whether the bowler dominates in long-form cricket while the batter attacks in white-ball cricket.</p>
       </div>
     </div>
-  {% endfor %}
-
-</div>
-
-{% if bb_chart %}
-<div class="card" style="margin-top:1.25rem;">
-  <div class="chart-desc">
-    <h4>📈 Most Effective Bowlers vs {{ bat_name }}</h4>
-    <p>Historical head-to-head data showing which bowlers have had the most success against this batsman, ranked by a composite index of economy and wicket rates. Color indicates bowling style.</p>
+    <div class="match-chart-body">{{ format_plot | safe }}</div>
   </div>
-  <div id="bb_chart"></div>
+  {% endif %}
+
+  {% if phase_plot %}
+  <div class="match-chart-block">
+    <div class="match-chart-meta">
+      <span class="match-chart-num">02</span>
+      <div>
+        <h3 class="match-chart-title">Phase-Wise Confrontation Profile</h3>
+        <p class="match-chart-desc">Head-to-head duel broken down by match phase (Powerplay, Middle, Death). Highlights where this confrontation is won: whether the bowler strikes with early swing/seam in the Powerplay or the batsman punishes variations at the death.</p>
+      </div>
+    </div>
+    <div class="match-chart-body">{{ phase_plot | safe }}</div>
+  </div>
+  {% endif %}
+
+  {% if shots_plot %}
+  <div class="match-chart-block">
+    <div class="match-chart-meta">
+      <span class="match-chart-num">03</span>
+      <div>
+        <h3 class="match-chart-title">Scoring Anatomy off Bowler</h3>
+        <p class="match-chart-desc">Breakdown of every delivery faced from this bowler into Dots (0), Singles (1), Twos (2), Threes (3), Fours (4), and Sixes (6). A high dot percentage with low singles highlights containment pressure, while high boundary shares indicate offensive control.</p>
+      </div>
+    </div>
+    <div class="match-chart-body">{{ shots_plot | safe }}</div>
+  </div>
+  {% endif %}
+
+  {% if dismissals_log and dismissals_log|length > 0 %}
+  <div class="match-chart-block" style="padding: 1.5rem;">
+    <div class="match-chart-meta" style="padding:0; border:none; margin-bottom:1.2rem;">
+      <span class="match-chart-num">04</span>
+      <div>
+        <h3 class="match-chart-title">Dismissal History (Chronological Wickets)</h3>
+        <p class="match-chart-desc">Every instance where {{ overview.bowler }} dismissed {{ overview.batter }} in international cricket.</p>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="match-log-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Format</th>
+            <th>Venue</th>
+            <th>Inning</th>
+            <th>Over</th>
+            <th>Mode of Dismissal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in dismissals_log %}
+          <tr>
+            <td>{{ d.date }}</td>
+            <td><span class="match-tag match-tag-duel">{{ d.format }}</span></td>
+            <td>{{ d.venue }}</td>
+            <td>Inning {{ d.inning }}</td>
+            <td>Over {{ d.over }}</td>
+            <td><strong style="color:var(--bowl-red)">{{ d.dismissal }}</strong></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
 </div>
+
+{# ═══════════════════════════════════════════════════════════════
+   MODE 2: BATTER VS TEAM RESULTS
+═══════════════════════════════════════════════════════════════ #}
+{% elif mode == 'bat_team' %}
+
+<div class="match-player-strip">
+  <div>
+    <h2 class="match-player-name">{{ overview.batter }} <span style="color:var(--muted);font-weight:400">vs</span> {{ overview.team }}</h2>
+    <div class="match-player-tags">
+      <span class="match-tag match-tag-duel">Batsman vs Country Record</span>
+    </div>
+  </div>
+</div>
+
+{# KPI Row #}
+<div class="match-kpi-row">
+  <div class="match-kpi-card">
+    <div class="match-kpi-label">Runs Scored</div>
+    <div class="match-kpi-value match-kpi-blue">{{ "{:,}".format(overview.total_runs) }}</div>
+    <div class="match-kpi-sub">in {{ overview.innings }} innings ({{ overview.matches }} matches)</div>
+  </div>
+
+  <div class="match-kpi-card">
+    <div class="match-kpi-label">Batting Average</div>
+    <div class="match-kpi-value match-kpi-orange">{{ overview.batting_average }}</div>
+    <div class="match-kpi-sub">{{ overview.dismissals }} dismissals</div>
+  </div>
+
+  <div class="match-kpi-card">
+    <div class="match-kpi-label">Strike Rate</div>
+    <div class="match-kpi-value match-kpi-green">{{ overview.strike_rate }}</div>
+    <div class="match-kpi-sub">{{ "{:,}".format(overview.balls_faced) }} balls faced</div>
+  </div>
+
+  <div class="match-kpi-card">
+    <div class="match-kpi-label">Boundaries</div>
+    <div class="match-kpi-value match-kpi-purple">{{ overview.boundaries }}</div>
+    <div class="match-kpi-sub">{{ overview.fours }} fours Â· {{ overview.sixes }} sixes</div>
+  </div>
+
+  <div class="match-kpi-card">
+    <div class="match-kpi-label">Dot Ball %</div>
+    <div class="match-kpi-value match-kpi-red">{{ overview.dot_pct }}%</div>
+    <div class="match-kpi-sub">{{ "{:,}".format(overview.dot_balls) }} dot balls</div>
+  </div>
+</div>
+
+{# Charts Stack #}
+<div class="match-charts-stack">
+
+  {% if format_plot %}
+  <div class="match-chart-block">
+    <div class="match-chart-meta">
+      <span class="match-chart-num">01</span>
+      <div>
+        <h3 class="match-chart-title">Format Mastery against {{ overview.team }}</h3>
+        <p class="match-chart-desc">Runs scored and scoring velocity against {{ overview.team }} across Test matches, ODIs, and T20Is.</p>
+      </div>
+    </div>
+    <div class="match-chart-body">{{ format_plot | safe }}</div>
+  </div>
+  {% endif %}
+
+  {% if bowlers_plot %}
+  <div class="match-chart-block">
+    <div class="match-chart-meta">
+      <span class="match-chart-num">02</span>
+      <div>
+        <h3 class="match-chart-title">{{ overview.team }} Bowlers Faced Most Frequently</h3>
+        <p class="match-chart-desc">Which bowlers from {{ overview.team }} has {{ overview.batter }} scored the most runs against, and which ones dismissed him most often?</p>
+      </div>
+    </div>
+    <div class="match-chart-body">{{ bowlers_plot | safe }}</div>
+  </div>
+  {% endif %}
+
+  {% if phase_plot %}
+  <div class="match-chart-block">
+    <div class="match-chart-meta">
+      <span class="match-chart-num">03</span>
+      <div>
+        <h3 class="match-chart-title">Phase Attack Profile against {{ overview.team }}</h3>
+        <p class="match-chart-desc">Scoring performance against {{ overview.team }} across Powerplay, Middle, and Death overs.</p>
+      </div>
+    </div>
+    <div class="match-chart-body">{{ phase_plot | safe }}</div>
+  </div>
+  {% endif %}
+
+</div>
+
+{# ═══════════════════════════════════════════════════════════════
+   MODE 3: BOWLER VS TEAM RESULTS
+═══════════════════════════════════════════════════════════════ #}
+{% elif mode == 'bowl_team' %}
+
+<div class="match-player-strip">
+  <div>
+    <h2 class="match-player-name">{{ overview.bowler }} <span style="color:var(--muted);font-weight:400">vs</span> {{ overview.team }}</h2>
+    <div class="match-player-tags">
+      <span class="match-tag match-tag-duel">Bowler vs Country Record</span>
+    </div>
+  </div>
+</div>
+
+{# KPI Row #}
+<div class="match-kpi-row">
+  <div class="match-kpi-card">
+    <div class="match-kpi-label">Wickets Taken</div>
+    <div class="match-kpi-value match-kpi-blue">{{ overview.wickets }}</div>
+    <div class="match-kpi-sub">in {{ overview.innings }} innings ({{ overview.matches }} matches)</div>
+  </div>
+
+  <div class="match-kpi-card">
+    <div class="match-kpi-label">Economy Rate</div>
+    <div class="match-kpi-value match-kpi-green">{{ "%.2f"|format(overview.economy_rate) }}</div>
+    <div class="match-kpi-sub">{{ overview.overs_display }} overs bowled</div>
+  </div>
+
+  <div class="match-kpi-card">
+    <div class="match-kpi-label">Bowling Average</div>
+    <div class="match-kpi-value match-kpi-orange">
+      {% if overview.bowling_average > 0 %}{{ "%.2f"|format(overview.bowling_average) }}{% else %}N/A{% endif %}
+    </div>
+    <div class="match-kpi-sub">{{ "{:,}".format(overview.runs_conceded) }} runs conceded</div>
+  </div>
+
+  <div class="match-kpi-card">
+    <div class="match-kpi-label">Strike Rate</div>
+    <div class="match-kpi-value match-kpi-red">
+      {% if overview.strike_rate > 0 %}{{ "%.1f"|format(overview.strike_rate) }}{% else %}N/A{% endif %}
+    </div>
+    <div class="match-kpi-sub">balls per wicket</div>
+  </div>
+
+  <div class="match-kpi-card">
+    <div class="match-kpi-label">Dot Ball %</div>
+    <div class="match-kpi-value match-kpi-purple">{{ overview.dot_pct }}%</div>
+    <div class="match-kpi-sub">{{ "{:,}".format(overview.dot_balls) }} dot balls delivered</div>
+  </div>
+</div>
+
+{# Charts Stack #}
+<div class="match-charts-stack">
+
+  {% if format_plot %}
+  <div class="match-chart-block">
+    <div class="match-chart-meta">
+      <span class="match-chart-num">01</span>
+      <div>
+        <h3 class="match-chart-title">Format Mastery against {{ overview.team }}</h3>
+        <p class="match-chart-desc">Wickets taken and economy rate against {{ overview.team }} across Test matches, ODIs, and T20Is.</p>
+      </div>
+    </div>
+    <div class="match-chart-body">{{ format_plot | safe }}</div>
+  </div>
+  {% endif %}
+
+  {% if batters_plot %}
+  <div class="match-chart-block">
+    <div class="match-chart-meta">
+      <span class="match-chart-num">02</span>
+      <div>
+        <h3 class="match-chart-title">Favorite Victims from {{ overview.team }}</h3>
+        <p class="match-chart-desc">Which batsmen from {{ overview.team }} has {{ overview.bowler }} dismissed most frequently?</p>
+      </div>
+    </div>
+    <div class="match-chart-body">{{ batters_plot | safe }}</div>
+  </div>
+  {% endif %}
+
+  {% if dismissal_plot %}
+  <div class="match-chart-block">
+    <div class="match-chart-meta">
+      <span class="match-chart-num">03</span>
+      <div>
+        <h3 class="match-chart-title">Dismissal Modes against {{ overview.team }}</h3>
+        <p class="match-chart-desc">Distribution of dismissal kinds (Bowled, Caught, LBW, Stumped) used against {{ overview.team }}.</p>
+      </div>
+    </div>
+    <div class="match-chart-body">{{ dismissal_plot | safe }}</div>
+  </div>
+  {% endif %}
+
+</div>
+
 {% endif %}
 
-{% elif bat_name %}
-<div class="card card-red">
-  <p>⚠️ No data for <strong>{{ bat_name }}</strong>. Check spelling and try again.</p>
-</div>
-{% endif %}
-
+{# ═══════════════════════════════════════════════════════════════
+   JS: Autocomplete + Dynamic Resize
+═══════════════════════════════════════════════════════════════ #}
 <script>
-{% if bb_chart %}
-queueChart('bb_chart', {{ bb_chart | tojson }});
-{% endif %}
+document.addEventListener("DOMContentLoaded", function () {
+  function setupDropdown(inputId, dropdownId, apiEndpoint, defaultPrompt) {
+    const input = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    if (!input || !dropdown) return;
+    let activeIdx = -1;
 
-/* Autocomplete for matchup page */
-var allBatsmen = {{ batsmen | tojson }};
+    function render(names, q) {
+      dropdown.innerHTML = "";
+      activeIdx = -1;
+      if (!names || names.length === 0) {
+        dropdown.classList.remove("show");
+        return;
+      }
+      const countDiv = document.createElement("div");
+      countDiv.className = "autocomplete-count";
+      countDiv.textContent = q ? `${names.length} player(s) found` : defaultPrompt;
+      dropdown.appendChild(countDiv);
 
-function setupAutocomplete(inputId, dropdownId, names) {
-  var input = document.getElementById(inputId);
-  var dropdown = document.getElementById(dropdownId);
-  var activeIdx = -1;
-
-  function render(query) {
-    dropdown.innerHTML = '';
-    activeIdx = -1;
-    if (!query) { dropdown.classList.remove('show'); return; }
-    var q = query.toLowerCase();
-    var matches = names.filter(function(n) { return n.toLowerCase().indexOf(q) !== -1; });
-    if (matches.length === 0) { dropdown.classList.remove('show'); return; }
-    var countDiv = document.createElement('div');
-    countDiv.className = 'autocomplete-count';
-    countDiv.textContent = matches.length + ' player' + (matches.length > 1 ? 's' : '') + ' found';
-    dropdown.appendChild(countDiv);
-    matches.slice(0, 30).forEach(function(name, idx) {
-      var item = document.createElement('div');
-      item.className = 'autocomplete-item';
-      var li = name.toLowerCase().indexOf(q);
-      item.innerHTML = name.substring(0, li) + '<mark>' + name.substring(li, li + q.length) + '</mark>' + name.substring(li + q.length);
-      item.addEventListener('mousedown', function(e) {
-        e.preventDefault();
-        input.value = name;
-        dropdown.classList.remove('show');
+      names.slice(0, 15).forEach((name, idx) => {
+        const item = document.createElement("div");
+        item.className = "autocomplete-item";
+        item.dataset.idx = idx;
+        if (q) {
+          const li = name.toLowerCase().indexOf(q.toLowerCase());
+          if (li >= 0) {
+            item.innerHTML = name.substring(0, li) + "<mark>" + name.substring(li, li + q.length) + "</mark>" + name.substring(li + q.length);
+          } else {
+            item.textContent = name;
+          }
+        } else {
+          item.textContent = name;
+        }
+        item.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          input.value = name;
+          dropdown.classList.remove("show");
+        });
+        dropdown.appendChild(item);
       });
-      dropdown.appendChild(item);
+      dropdown.classList.add("show");
+    }
+
+    input.addEventListener("focus", function () {
+      const val = this.value.trim();
+      if (val.length >= 2) {
+        fetch(apiEndpoint + "?q=" + encodeURIComponent(val))
+          .then(r => r.json())
+          .then(data => render(data, val))
+          .catch(() => {});
+      }
     });
-    dropdown.classList.add('show');
+
+    input.addEventListener("input", function () {
+      const val = this.value.trim();
+      if (val.length < 1) {
+        dropdown.classList.remove("show");
+        return;
+      }
+      fetch(apiEndpoint + "?q=" + encodeURIComponent(val))
+        .then(r => r.json())
+        .then(data => render(data, val))
+        .catch(() => {});
+    });
+
+    input.addEventListener("blur", function () {
+      setTimeout(() => { dropdown.classList.remove("show"); }, 200);
+    });
+
+    input.addEventListener("keydown", function (e) {
+      const items = dropdown.querySelectorAll(".autocomplete-item");
+      if (!items.length || !dropdown.classList.contains("show")) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        activeIdx = Math.min(activeIdx + 1, items.length - 1);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        activeIdx = Math.max(activeIdx - 1, 0);
+      } else if (e.key === "Enter" && activeIdx >= 0) {
+        e.preventDefault();
+        items[activeIdx].dispatchEvent(new MouseEvent("mousedown"));
+        return;
+      } else if (e.key === "Escape") {
+        dropdown.classList.remove("show");
+        return;
+      }
+      items.forEach((el, i) => el.classList.toggle("active", i === activeIdx));
+      if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: "nearest" });
+    });
   }
 
-  input.addEventListener('input', function() { render(this.value.trim()); });
-  input.addEventListener('focus', function() { if (this.value.trim()) render(this.value.trim()); });
-  input.addEventListener('blur', function() { setTimeout(function() { dropdown.classList.remove('show'); }, 150); });
-  input.addEventListener('keydown', function(e) {
-    var items = dropdown.querySelectorAll('.autocomplete-item');
-    if (!items.length) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); }
-    else if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); input.value = names.filter(function(n) { return n.toLowerCase().indexOf(input.value.trim().toLowerCase()) !== -1; })[activeIdx]; dropdown.classList.remove('show'); return; }
-    else return;
-    items.forEach(function(el, i) { el.classList.toggle('active', i === activeIdx); });
-    if (items[activeIdx]) items[activeIdx].scrollIntoView({block: 'nearest'});
-  });
+  setupDropdown("batter", "batter-dropdown", "/api/search_batters", "Top Batters");
+  setupDropdown("bowler", "bowler-dropdown", "/api/search_bowlers", "Top Bowlers");
+
+  function resizeAllPlots() {
+    if (window.Plotly) {
+      document.querySelectorAll('.plotly-graph-div').forEach(function(el) {
+        window.Plotly.Plots.resize(el);
+      });
+    }
+  }
+  window.addEventListener('resize', resizeAllPlots);
+  setTimeout(resizeAllPlots, 100);
+  setTimeout(resizeAllPlots, 500);
+});
+</script>
+
+{# ═══════════════════════════════════════════════════════════════
+   PAGE-SCOPED CSS
+═══════════════════════════════════════════════════════════════ #}
+<style>
+/* ─€─€ Page header ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.match-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+.match-eyebrow {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+.match-title {
+  font-size: 1.9rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #111111;
+  margin: 0 0 0.4rem;
+  line-height: 1.1;
+}
+.match-subtitle {
+  font-size: 0.88rem;
+  color: var(--muted);
+  max-width: 600px;
+  line-height: 1.6;
+  margin: 0;
 }
 
-setupAutocomplete('matchup-bat-input', 'matchup-bat-dropdown', allBatsmen);
-</script>
+/* ─€─€ Mode selector tabs ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.match-mode-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+.match-tab {
+  padding: 0.6rem 1.25rem;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.88rem;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+.match-tab:hover {
+  color: #111111;
+  border-color: var(--accent);
+  text-decoration: none;
+}
+.match-tab.active {
+  background: var(--accent);
+  color: #111111;
+  border-color: var(--accent);
+  box-shadow: 0 4px 14px rgba(79, 142, 247, 0.35);
+}
+
+/* ─€─€ Filter bar ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.match-filter-bar {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 2rem;
+  
+}
+.match-filter-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.match-field { display: flex; flex-direction: column; gap: 0.35rem; flex: 1 1 180px; }
+.match-field-player { flex: 2 1 240px; }
+.match-field label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.match-input-wrap { position: relative; }
+.match-input-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+.match-input, .match-select {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  color: #1a1a1a;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+}
+.match-input { padding-left: 2.4rem; }
+.match-input:focus, .match-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79, 142, 247, 0.2);
+}
+.match-input::placeholder { color: #9ca3af; }
+.match-select option { background: #fff; color: #1a1a1a; }
+.match-field-btn { justify-content: flex-end; flex: 1 1 140px; }
+.match-analyze-btn {
+  padding: 0.65rem 1.5rem;
+  background: #f97316;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: all 0.2s;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.3);
+  white-space: nowrap;
+}
+.match-analyze-btn:hover {
+  background: #ea6a0a;
+  transform: translateY(-1px);
+}
+
+/* ─€─€ Famous clashes pills ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.famous-clashes-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #e0e0e0;
+  flex-wrap: wrap;
+}
+.famous-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.clash-pill {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(249, 115, 22, 0.08);
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  padding: 0.2rem 0.65rem;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+.clash-pill:hover {
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--accent-dark);
+  text-decoration: none;
+}
+
+/* ─€─€ Empty state ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.match-empty {
+  text-align: center;
+  padding: 5rem 2rem;
+  background: #ffffff;
+  border: 1px dashed #e0e0e0;
+  border-radius: 12px;
+}
+.match-empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+.match-empty h3   { font-size: 1.3rem; font-weight: 700; color: #111111; margin-bottom: 0.5rem; }
+.match-empty p    { color: var(--muted); font-size: 0.9rem; max-width: 500px; margin: 0 auto; }
+
+/* ─€─€ Player identity strip ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.match-player-strip {
+  margin-bottom: 1.5rem;
+}
+.match-player-name {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #111111;
+  letter-spacing: -0.4px;
+  margin: 0 0 0.5rem;
+}
+.match-player-tags { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.match-tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 0.2rem 0.75rem;
+  border-radius: 20px;
+}
+.match-tag-duel { background: rgba(79, 142, 247, 0.15); color: var(--accent); border: 1px solid rgba(79, 142, 247, 0.3); }
+
+/* Verdict colors */
+.match-verdict-green  { background: rgba(34, 197, 94, 0.15);  color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
+.match-verdict-red    { background: rgba(239, 68, 68, 0.15);   color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+.match-verdict-orange { background: rgba(249, 115, 22, 0.15); color: #f97316; border: 1px solid rgba(249, 115, 22, 0.3); }
+.match-verdict-blue   { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+
+/* ─€─€ KPI cards ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.match-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+.match-kpi-card {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1.2rem 1.4rem;
+  transition: transform 0.2s, border-color 0.2s;
+  
+}
+.match-kpi-card:hover { transform: translateY(-2px); border-color: rgba(79, 142, 247, 0.4); }
+.match-kpi-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+.match-kpi-value {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1;
+  margin-bottom: 0.4rem;
+}
+.match-kpi-sub   { font-size: 0.75rem; color: var(--muted); }
+.match-kpi-blue   { color: #38bdf8; }
+.match-kpi-green  { color: #22c55e; }
+.match-kpi-orange { color: #f97316; }
+.match-kpi-red    { color: #ef4444; }
+.match-kpi-purple { color: #a855f7; }
+
+/* ─€─€ Charts stack ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.match-charts-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+.match-chart-block {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  overflow: hidden;
+  
+  transition: border-color 0.25s;
+}
+.match-chart-block:hover { border-color: rgba(79, 142, 247, 0.35); }
+
+.match-chart-meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.4rem 1.6rem 1rem;
+  border-bottom: 1px solid #e8e8e8;
+}
+.match-chart-num {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--accent);
+  background: rgba(79, 142, 247, 0.1);
+  border: 1px solid rgba(79, 142, 247, 0.25);
+  border-radius: 6px;
+  padding: 0.25rem 0.55rem;
+  margin-top: 0.1rem;
+  font-family: monospace;
+}
+.match-chart-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111111;
+  margin: 0 0 0.4rem;
+}
+.match-chart-desc {
+  font-size: 0.84rem;
+  color: var(--muted);
+  line-height: 1.65;
+  margin: 0;
+  max-width: 820px;
+}
+
+.match-chart-body {
+  padding: 0.5rem 0.5rem 1rem;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+.match-chart-body .js-plotly-plot,
+.match-chart-body .plotly-graph-div {
+  width: 100% !important;
+}
+
+/* ─€─€ Dismissals log table ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.match-log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.match-log-table th {
+  text-align: left;
+  padding: 0.6rem 1rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  border-bottom: 1px solid #e0e0e0;
+}
+.match-log-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(55, 65, 81, 0.25);
+  color: #111111;
+}
+.match-log-table tr:hover td {
+  background: rgba(79, 142, 247, 0.05);
+}
+
+@media (max-width: 640px) {
+  .match-title      { font-size: 1.5rem; }
+  .match-filter-row { flex-direction: column; }
+  .match-field      { width: 100%; }
+  .match-kpi-row    { grid-template-columns: repeat(2, 1fr); }
+  .match-chart-meta { flex-direction: column; gap: 0.75rem; }
+}
+</style>
+
 {% endblock %}
+
+
+
+
+
+
+

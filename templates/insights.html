@@ -1,76 +1,932 @@
 {% extends "base.html" %}
-{% block title %}Global Insights{% endblock %}
+
+{% block title %}Global Cricket Insights &amp; Format Evolution — Cricket Analytics{% endblock %}
+
 {% block content %}
 
-<div class="page-header">
-  <a href="/" class="back-link">← Home</a>
-  <h1>📊 Global Insights Dashboard</h1>
-  <p class="subtitle">Tournament-level patterns across the ICC T20 World Cup dataset — delivery outcomes, phase dynamics, pitch zone exploitation, bowler effectiveness, and over-by-over momentum shifts.</p>
+{# ═══════════════════════════════════════════════════════════════
+   PAGE HEADER
+═══════════════════════════════════════════════════════════════ #}
+<div class="ins-page-header">
+  <div class="ins-header-left">
+    <span class="ins-eyebrow">📊 Macro Intelligence &amp; Multi-Format Evolution</span>
+    <h1 class="ins-title">Global Cricket Insights &amp; Historical Evolution</h1>
+    <p class="ins-subtitle">Macro-analytics spanning 4.81 million ball-by-ball international deliveries across Test, ODI, and T20I cricket (2001–2026). Explore multi-format comparisons at the top, and select a specific format below for deep-dive trajectories, target chasing brackets, and top performers.</p>
+  </div>
 </div>
 
-<div class="charts-grid">
+{# ═══════════════════════════════════════════════════════════════
+   GLOBAL FILTER BAR (Team, Venue, Year Min, Year Max)
+═══════════════════════════════════════════════════════════════ #}
+<div class="ins-filter-bar">
+  <form method="GET" action="/insights" id="insights-form">
+    <input type="hidden" name="format" id="hidden-format" value="{{ selected_format }}">
+    
+    <div class="ins-filter-grid">
 
-  <div class="chart-card">
-    <div class="chart-desc">
-      <h4>🎯 Delivery Outcome Distribution</h4>
-      <p>How every ball in the tournament breaks down — dots, singles/doubles, boundaries, and wickets. This reveals the overall rhythm of T20 cricket: the balance between run-scoring opportunity and risk.</p>
-      <span class="insight-tag">Core dataset overview</span>
+      {# Team #}
+      <div class="ins-field">
+        <label for="team">Team Scope</label>
+        <select name="team" id="team" class="ins-select">
+          {% for t in filter_options.teams %}
+          <option value="{{ t }}" {% if t == selected_team %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {# Venue #}
+      <div class="ins-field">
+        <label for="venue">Stadium / Venue</label>
+        <select name="venue" id="venue" class="ins-select">
+          {% for v in filter_options.venues %}
+          <option value="{{ v }}" {% if v == selected_venue %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {# Year Min #}
+      <div class="ins-field ins-field-sm">
+        <label for="year_min">Start Year</label>
+        <input type="number" name="year_min" id="year_min" class="ins-input" min="2001" max="2026" value="{{ selected_year_min }}">
+      </div>
+
+      {# Year Max #}
+      <div class="ins-field ins-field-sm">
+        <label for="year_max">End Year</label>
+        <input type="number" name="year_max" id="year_max" class="ins-input" min="2001" max="2026" value="{{ selected_year_max }}">
+      </div>
+
+      {# Submit #}
+      <div class="ins-field ins-field-btn">
+        <button type="submit" class="ins-btn-submit">⚡ Apply Scope</button>
+      </div>
+
     </div>
-    <div id="outcomes"></div>
+  </form>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════
+   PART 1: GLOBAL MULTI-FORMAT BENCHMARK & MACRO OVERVIEW (TOP)
+═══════════════════════════════════════════════════════════════ #}
+
+{# Executive KPI Strip #}
+<div class="ins-kpi-grid">
+  <div class="ins-kpi-card">
+    <span class="ins-kpi-label">Matches Analyzed</span>
+    <span class="ins-kpi-val" style="color: #38bdf8;">{{ "{:,}".format(kpis.total_matches) }}</span>
+    <span class="ins-kpi-sub">{{ "{:,}".format(kpis.total_deliveries) }} international deliveries</span>
+  </div>
+  <div class="ins-kpi-card">
+    <span class="ins-kpi-label">Total Runs Scored</span>
+    <span class="ins-kpi-val" style="color: #10b981;">{{ "{:,}".format(kpis.total_runs) }}</span>
+    <span class="ins-kpi-sub">{{ kpis.run_rate }} overall runs / legal over</span>
+  </div>
+  <div class="ins-kpi-card">
+    <span class="ins-kpi-label">Wickets Taken</span>
+    <span class="ins-kpi-val" style="color: #ef4444;">{{ "{:,}".format(kpis.total_wickets) }}</span>
+    <span class="ins-kpi-sub">{{ kpis.wickets_per_100_balls }} wkts / 100 legal balls</span>
+  </div>
+  <div class="ins-kpi-card">
+    <span class="ins-kpi-label">Boundary Run Share</span>
+    <span class="ins-kpi-val" style="color: #fbbf24;">{{ kpis.boundary_run_pct }}%</span>
+    <span class="ins-kpi-sub">1 boundary every {{ kpis.balls_per_boundary }} balls</span>
+  </div>
+  <div class="ins-kpi-card">
+    <span class="ins-kpi-label">Dot Ball Share</span>
+    <span class="ins-kpi-val" style="color: #94a3b8;">{{ kpis.dot_ball_pct }}%</span>
+    <span class="ins-kpi-sub">Zero-run balls across all formats</span>
+  </div>
+</div>
+
+{# 1. Format Comparison Matrix #}
+<div class="ins-section-card">
+  <div class="ins-section-header">
+    <div class="ins-section-num">TOP</div>
+    <div>
+      <h2 class="ins-section-title">Format Comparison Matrix: Test vs. ODI vs. T20I Benchmark</h2>
+      <p class="ins-section-desc">Side-by-side empirical matrix comparing scoring velocity, risk balance, dot-ball percentages, and bowler strike capability across all three international formats.</p>
+    </div>
   </div>
 
-  <div class="chart-card wide">
-    <div class="chart-desc">
-      <h4>⚡ Phase Comparison — Powerplay vs Middle vs Death</h4>
-      <p>Compares average runs per ball, boundary %, wicket %, and dot-ball % across the three match phases. Reveals how batting aggression escalates in death overs while powerplay offers the best dot-ball efficiency for bowlers.</p>
-      <span class="insight-tag">Phase-level strategy insight</span>
-    </div>
-    <div id="phase_compare"></div>
+  <div class="ins-table-wrap">
+    <table class="ins-table">
+      <thead>
+        <tr>
+          <th>Metric / Characteristic</th>
+          <th style="color: #ef4444;">🔍´ Test Cricket</th>
+          <th style="color: #38bdf8;">🔍µ One-Day International (ODI)</th>
+          <th style="color: #a855f7;"> T20 International (T20I)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Average Innings Score</strong></td>
+          <td><strong>{{ format_matrix.Test.avg_score if 'Test' in format_matrix else '—' }} runs</strong> <small>(1st Inn: {{ format_matrix.Test.avg_1st_inn_score if 'Test' in format_matrix else '—' }})</small></td>
+          <td><strong>{{ format_matrix.ODI.avg_score if 'ODI' in format_matrix else '—' }} runs</strong> <small>(1st Inn: {{ format_matrix.ODI.avg_1st_inn_score if 'ODI' in format_matrix else '—' }})</small></td>
+          <td><strong>{{ format_matrix.T20I.avg_score if 'T20I' in format_matrix else '—' }} runs</strong> <small>(1st Inn: {{ format_matrix.T20I.avg_1st_inn_score if 'T20I' in format_matrix else '—' }})</small></td>
+        </tr>
+        <tr>
+          <td><strong>Average Run Rate (RPO)</strong></td>
+          <td>{{ format_matrix.Test.run_rate if 'Test' in format_matrix else '—' }} RPO</td>
+          <td>{{ format_matrix.ODI.run_rate if 'ODI' in format_matrix else '—' }} RPO</td>
+          <td>{{ format_matrix.T20I.run_rate if 'T20I' in format_matrix else '—' }} RPO</td>
+        </tr>
+        <tr>
+          <td><strong>Average Fours per Innings</strong></td>
+          <td>{{ format_matrix.Test.avg_fours if 'Test' in format_matrix else '—' }}</td>
+          <td>{{ format_matrix.ODI.avg_fours if 'ODI' in format_matrix else '—' }}</td>
+          <td>{{ format_matrix.T20I.avg_fours if 'T20I' in format_matrix else '—' }}</td>
+        </tr>
+        <tr>
+          <td><strong>Average Sixes per Innings</strong></td>
+          <td>{{ format_matrix.Test.avg_sixes if 'Test' in format_matrix else '—' }}</td>
+          <td>{{ format_matrix.ODI.avg_sixes if 'ODI' in format_matrix else '—' }}</td>
+          <td>{{ format_matrix.T20I.avg_sixes if 'T20I' in format_matrix else '—' }}</td>
+        </tr>
+        <tr>
+          <td><strong>Dot Ball Percentage</strong></td>
+          <td>{{ format_matrix.Test.dot_pct if 'Test' in format_matrix else '—' }}%</td>
+          <td>{{ format_matrix.ODI.dot_pct if 'ODI' in format_matrix else '—' }}%</td>
+          <td>{{ format_matrix.T20I.dot_pct if 'T20I' in format_matrix else '—' }}%</td>
+        </tr>
+        <tr>
+          <td><strong>Boundary Percentage (Deliveries)</strong></td>
+          <td>{{ format_matrix.Test.boundary_ball_pct if 'Test' in format_matrix else '—' }}%</td>
+          <td>{{ format_matrix.ODI.boundary_ball_pct if 'ODI' in format_matrix else '—' }}%</td>
+          <td>{{ format_matrix.T20I.boundary_ball_pct if 'T20I' in format_matrix else '—' }}%</td>
+        </tr>
+        <tr>
+          <td><strong>Boundary Run Share</strong></td>
+          <td>{{ format_matrix.Test.boundary_run_pct if 'Test' in format_matrix else '—' }}%</td>
+          <td>{{ format_matrix.ODI.boundary_run_pct if 'ODI' in format_matrix else '—' }}%</td>
+          <td>{{ format_matrix.T20I.boundary_run_pct if 'T20I' in format_matrix else '—' }}%</td>
+        </tr>
+        <tr>
+          <td><strong>Wickets per 100 Legal Balls</strong></td>
+          <td>{{ format_matrix.Test.wkts_per_100_balls if 'Test' in format_matrix else '—' }}</td>
+          <td>{{ format_matrix.ODI.wkts_per_100_balls if 'ODI' in format_matrix else '—' }}</td>
+          <td>{{ format_matrix.T20I.wkts_per_100_balls if 'T20I' in format_matrix else '—' }}</td>
+        </tr>
+        <tr>
+          <td><strong>Average Innings Wickets</strong></td>
+          <td>{{ format_matrix.Test.avg_wkts_per_inn if 'Test' in format_matrix else '—' }}</td>
+          <td>{{ format_matrix.ODI.avg_wkts_per_inn if 'ODI' in format_matrix else '—' }}</td>
+          <td>{{ format_matrix.T20I.avg_wkts_per_inn if 'T20I' in format_matrix else '—' }}</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 
-  <div class="chart-card">
-    <div class="chart-desc">
-      <h4>🔥 Pitch Zone Heatmap — Average Runs</h4>
-      <p>Which pitch line × length combinations concede the most runs? Short & wide deliveries consistently leak runs, while good-length on off-stump is the most economical. Use this to plan bowling line-and-length.</p>
-      <span class="insight-tag">Bowling plan foundation</span>
+  {% if fmt_bars_plot %}
+  <div style="margin-top: 1.5rem;">
+    {{ fmt_bars_plot | safe }}
+  </div>
+  {% endif %}
+</div>
+
+{# 2. Three-Era Macro Evolution Matrix #}
+<div class="ins-section-card">
+  <div class="ins-section-header">
+    <div class="ins-section-num">TOP</div>
+    <div>
+      <h2 class="ins-section-title">Three-Era Evolution Matrix (2000–2009 vs. 2010–2019 vs. 2020–2026)</h2>
+      <p class="ins-section-desc">Empirical comparison illustrating how international cricket transformed from the classical era to modern ultra-aggressive tempo.</p>
     </div>
-    <div id="zone_run"></div>
   </div>
 
-  <div class="chart-card">
-    <div class="chart-desc">
-      <h4>💀 Pitch Zone Heatmap — Wicket %</h4>
-      <p>Which zones yield the most wickets? Good-length on or just outside off-stump is the classic wicket-taking corridor. Compare with the runs heatmap to find zones that are both economical and lethal.</p>
-      <span class="insight-tag">Wicket-taking zones</span>
+  <div class="ins-table-wrap">
+    <table class="ins-table">
+      <thead>
+        <tr>
+          <th>Historical Era</th>
+          <th>Matches</th>
+          <th>Scoring Rate</th>
+          <th>Dot Ball %</th>
+          <th>Boundary Ball %</th>
+          <th>Boundary Run %</th>
+          <th>Wickets / 100 Balls</th>
+          <th>Bowling Average</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in era_matrix %}
+        <tr>
+          <td><strong style="color: #38bdf8;">{{ e.era }}</strong></td>
+          <td>{{ "{:,}".format(e.matches) }}</td>
+          <td><strong>{{ e.run_rate }} RPO</strong></td>
+          <td>{{ e.dot_pct }}%</td>
+          <td>{{ e.boundary_ball_pct }}%</td>
+          <td><strong style="color: #fbbf24;">{{ e.boundary_run_pct }}%</strong></td>
+          <td>{{ e.wkts_per_100_balls }}</td>
+          <td>{{ e.bowling_avg }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# 3. Batting Accumulation & Toss Across Formats #}
+<div class="ins-section-card">
+  <div class="ins-section-header">
+    <div class="ins-section-num">TOP</div>
+    <div>
+      <h2 class="ins-section-title">Batting Run Accumulation &amp; Toss Decision Outcomes</h2>
+      <p class="ins-section-desc">Comparing dots, running between wickets, and boundary shares across formats alongside toss conversion records.</p>
     </div>
-    <div id="zone_wkt"></div>
   </div>
 
-  <div class="chart-card wide">
-    <div class="chart-desc">
-      <h4>🎳 Bowler Effectiveness Scatter — Dot Ball % vs Wicket %</h4>
-      <p>Each bubble is a bowler (min 50 balls). X-axis = dot-ball efficiency, Y-axis = wicket-taking ability, bubble size = total deliveries, color = composite success index. Top-right quadrant = the most effective bowlers in the tournament.</p>
-      <span class="insight-tag">Bowler ranking & scouting</span>
-    </div>
-    <div id="bowler_scatter"></div>
+  <div class="ins-table-wrap">
+    <table class="ins-table">
+      <thead>
+        <tr>
+          <th>Format</th>
+          <th>Dot Ball %</th>
+          <th>Singles %</th>
+          <th>Twos %</th>
+          <th>Fours %</th>
+          <th>Sixes %</th>
+          <th>Boundary Runs %</th>
+          <th>Running Runs %</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for _, r in dna_format.iterrows() %}
+        <tr>
+          <td><strong>{{ r['match_type'] }}</strong></td>
+          <td><span style="color: #94a3b8;">{{ r['dot_pct'] }}%</span></td>
+          <td><span style="color: #38bdf8;">{{ r['single_pct'] }}%</span></td>
+          <td><span style="color: #14b8a6;">{{ r['two_pct'] }}%</span></td>
+          <td><span style="color: #f97316;">{{ r['four_pct'] }}%</span></td>
+          <td><span style="color: #ef4444;">{{ r['six_pct'] }}%</span></td>
+          <td><strong style="color: #fbbf24;">{{ r['runs_from_boundaries_pct'] }}%</strong></td>
+          <td><strong>{{ r['runs_from_running_pct'] }}%</strong></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 
-  <div class="chart-card wide">
-    <div class="chart-desc">
-      <h4>📈 Over-by-Over Trends — Runs & Boundary %</h4>
-      <p>How run rate and boundary percentage fluctuate across all 20 overs. Green zone = Powerplay (overs 1–6), pink zone = Death (overs 16–20). This shows the momentum signature of T20 cricket — the U-shaped aggression curve.</p>
-      <span class="insight-tag">Match flow analysis</span>
+  <div class="ins-table-wrap" style="margin-top: 1.5rem;">
+    <table class="ins-table">
+      <thead>
+        <tr>
+          <th>Format</th>
+          <th>Completed Matches</th>
+          <th>Toss Winner Win %</th>
+          <th>Elected to Bat %</th>
+          <th>Elected to Field %</th>
+          <th>Win % When Batting 1st</th>
+          <th>Win % When Fielding 1st</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for _, r in toss_summary.iterrows() %}
+        <tr>
+          <td><strong>{{ r['match_type'] }}</strong></td>
+          <td>{{ "{:,}".format(r['completed_matches']) }}</td>
+          <td><strong style="color: #38bdf8;">{{ r['toss_win_match_win_pct'] }}%</strong></td>
+          <td>{{ r['choose_bat_pct'] }}%</td>
+          <td>{{ r['choose_field_pct'] }}%</td>
+          <td>{{ r['bat_first_conversion_pct'] }}%</td>
+          <td>{{ r['field_first_conversion_pct'] }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════
+   PART 2: FORMAT-SPECIFIC VISUALIZATIONS & TOP PERFORMERS (BOTTOM)
+═══════════════════════════════════════════════════════════════ #}
+
+<div class="ins-format-selector-anchor" id="format-section">
+  <div class="ins-format-tabs-header">
+    <div>
+      <span class="ins-eyebrow" style="background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.3); color: #22c55e;">🎯 Format Deep-Dive Selector</span>
+      <h2 class="ins-format-tabs-title">Choose Format for Specific Visualizations &amp; Top Performers</h2>
+      <p class="ins-format-tabs-desc">Select below to inspect format-isolated historical curves, decay rates, target brackets, and leading players for {{ selected_team }}.</p>
     </div>
-    <div id="over_trend"></div>
+
+    <div class="ins-format-nav-pills">
+      <a href="?format=Test&team={{ selected_team }}&venue={{ selected_venue }}&year_min={{ selected_year_min }}&year_max={{ selected_year_max }}#format-section" 
+         class="ins-pill-btn {% if selected_format == 'Test' %}active-test{% endif %}">
+        🔍´ Test Match
+      </a>
+      <a href="?format=ODI&team={{ selected_team }}&venue={{ selected_venue }}&year_min={{ selected_year_min }}&year_max={{ selected_year_max }}#format-section" 
+         class="ins-pill-btn {% if selected_format == 'ODI' %}active-odi{% endif %}">
+        🔍µ One-Day Int (ODI)
+      </a>
+      <a href="?format=T20I&team={{ selected_team }}&venue={{ selected_venue }}&year_min={{ selected_year_min }}&year_max={{ selected_year_max }}#format-section" 
+         class="ins-pill-btn {% if selected_format == 'T20I' %}active-t20i{% endif %}">
+         T20 International
+      </a>
+    </div>
+  </div>
+</div>
+
+{# ─€─€ Format Deep Dive Container ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ #}
+<div class="ins-section-card" style="border-top: 3px solid {% if selected_format == 'Test' %}#ef4444{% elif selected_format == 'ODI' %}#38bdf8{% else %}#a855f7{% endif %};">
+  <div class="ins-section-header">
+    <div class="ins-section-num" style="color: {% if selected_format == 'Test' %}#ef4444{% elif selected_format == 'ODI' %}#38bdf8{% else %}#a855f7{% endif %};">
+      {{ selected_format }}
+    </div>
+    <div>
+      <h2 class="ins-section-title">{{ selected_format }} Specific Visualizations &amp; Historical Trajectory</h2>
+      <p class="ins-section-desc">Showing format-pure scoring curves, condition dynamics, bowling lethality, and leading performers for <strong>{{ selected_team }}</strong> at <strong>{{ selected_venue }}</strong> ({{ selected_year_min }}–{{ selected_year_max }}).</p>
+    </div>
+  </div>
+
+  {# ─€─€ Format Charts Stack ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ #}
+  <div class="ins-charts-stack">
+
+    {# 1. Historical Scoring Evolution #}
+    {% if scoring_plot %}
+    <div class="ins-chart-block">
+      <div class="ins-chart-meta">
+        <h3 class="ins-chart-title">
+          {% if selected_format == 'Test' %}
+          Test Cricket: Four-Innings Independent Scoring Trends (Innings 1, 2, 3, 4)
+          {% else %}
+          {{ selected_format }} Average Innings Score Evolution Over Time
+          {% endif %}
+        </h3>
+        <p class="ins-chart-desc">
+          {% if selected_format == 'Test' %}
+          Independent annual averages for Innings 1 through 4. Tracks multi-day pitch wear and Day 4–5 batting difficulty without misleading 2-innings blending.
+          {% else %}
+          Average completed team innings score year-by-year across {{ selected_format }} cricket.
+          {% endif %}
+        </p>
+      </div>
+      <div class="ins-chart-body">{{ scoring_plot | safe }}</div>
+    </div>
+    {% endif %}
+
+    {# 2. Run Rate & Scoring Speed #}
+    {% if rr_plot %}
+    <div class="ins-chart-block">
+      <div class="ins-chart-meta">
+        <h3 class="ins-chart-title">{{ selected_format }} Run Rate Evolution (Runs / Legal Over)</h3>
+        <p class="ins-chart-desc">Scoring speed calculated as Total Runs / (Legal Balls / 6.0), strictly excluding extras from the balls denominator.</p>
+      </div>
+      <div class="ins-chart-body">{{ rr_plot | safe }}</div>
+    </div>
+    {% endif %}
+
+    {# 3. Boundary Evolution #}
+    {% if bdry_plot %}
+    <div class="ins-chart-block">
+      <div class="ins-chart-meta">
+        <h3 class="ins-chart-title">{{ selected_format }} Boundary Evolution: Fours, Sixes &amp; Boundary Run Contribution</h3>
+        <p class="ins-chart-desc">Average boundaries per innings and percentage of total runs generated strictly via boundaries.</p>
+      </div>
+      <div class="ins-chart-body">{{ bdry_plot | safe }}</div>
+    </div>
+    {% endif %}
+
+    {# 4. TEST SPECIFIC CHARTS #}
+    {% if selected_format == 'Test' %}
+      {% if test_decay_plot %}
+      <div class="ins-chart-block">
+        <div class="ins-chart-meta">
+          <h3 class="ins-chart-title">Test Match Pitch Deterioration: 4-Innings Decay &amp; All-Out Frequencies</h3>
+          <p class="ins-chart-desc">Historical decline from 1st innings par through 4th innings, alongside the probability of an innings terminating all out.</p>
+        </div>
+        <div class="ins-chart-body">{{ test_decay_plot | safe }}</div>
+      </div>
+      {% endif %}
+
+      {% if test_draw_plot %}
+      <div class="ins-chart-block">
+        <div class="ins-chart-meta">
+          <h3 class="ins-chart-title">Historical Test Match Draw Rate Decline</h3>
+          <p class="ins-chart-desc">Evolution of result percentage vs draw percentage, documenting how modern aggression reduced Test draws from ~30% in the early 2000s to below 8% today.</p>
+        </div>
+        <div class="ins-chart-body">{{ test_draw_plot | safe }}</div>
+      </div>
+      {% endif %}
+
+      {% if test_targets_plot %}
+      <div class="ins-chart-block">
+        <div class="ins-chart-meta">
+          <h3 class="ins-chart-title">4th Innings Target Pursuits: Outright Win vs. Draw vs. Defeat</h3>
+          <p class="ins-chart-desc">Empirical outcomes of 4th innings target chases segmented by target brackets (&lt;150, 150–249, 250–349, 350+ runs).</p>
+        </div>
+        <div class="ins-chart-body">{{ test_targets_plot | safe }}</div>
+      </div>
+      {% endif %}
+    {% endif %}
+
+    {# 5. LIMITED OVERS SPECIFIC CHARTS (ODI & T20I Chasing Brackets) #}
+    {% if selected_format in ('ODI', 'T20I') and target_plot %}
+    <div class="ins-chart-block">
+      <div class="ins-chart-meta">
+        <h3 class="ins-chart-title">{{ selected_format }} Target Chasing Success by Score Bracket</h3>
+        <p class="ins-chart-desc">
+          {% if selected_format == 'T20I' %}
+          Win probability when chasing T20I targets: &lt;140, 140–169, 170–199, and 200+ runs.
+          {% else %}
+          Win probability when chasing ODI targets: &lt;200, 200–249, 250–299, and 300+ runs.
+          {% endif %}
+        </p>
+      </div>
+      <div class="ins-chart-body">{{ target_plot | safe }}</div>
+    </div>
+    {% endif %}
+
+    {# 6. Bowling & Dismissals #}
+    {% if bowling_plot %}
+    <div class="ins-chart-block">
+      <div class="ins-chart-meta">
+        <h3 class="ins-chart-title">{{ selected_format }} Bowling Lethality: Wickets / 100 Balls vs. Economy Rate</h3>
+        <p class="ins-chart-desc">Wickets credited to bowlers per 100 legal deliveries alongside economy rate trajectory.</p>
+      </div>
+      <div class="ins-chart-body">{{ bowling_plot | safe }}</div>
+    </div>
+    {% endif %}
+
+    {% if dismissals_plot %}
+    <div class="ins-chart-block">
+      <div class="ins-chart-meta">
+        <h3 class="ins-chart-title">{{ selected_format }} Dismissal Modes Distribution</h3>
+        <p class="ins-chart-desc">Distribution of dismissals across catches, clean bowled, LBWs, stumpings, and run-outs in this format.</p>
+      </div>
+      <div class="ins-chart-body">{{ dismissals_plot | safe }}</div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  {# ─€─€ Top Performers Section ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ #}
+  <div class="ins-performers-wrap" style="margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid #e4e4e4;">
+    <div class="ins-section-header" style="margin-bottom: 1.25rem;">
+      <div class="ins-section-num" style="background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.3); color: #fbbf24;">â˜…</div>
+      <div>
+        <h3 class="ins-section-title" style="font-size: 1.15rem;">Leading Players in {{ selected_format }} ({{ selected_team }})</h3>
+        <p class="ins-section-desc">Top run-scorers and leading wicket-takers in {{ selected_format }} cricket for {{ selected_team }} in this analytical window.</p>
+      </div>
+    </div>
+
+    <div class="ins-performers-grid">
+
+      {# Batters Card #}
+      <div class="ins-perf-card">
+        <div class="ins-perf-header">
+          <h4 class="ins-perf-title"> Top Batters (Total Runs)</h4>
+          <span class="ins-perf-tag">{{ selected_format }} Batting</span>
+        </div>
+        
+        {% if top_bat_plot %}
+        <div class="ins-chart-body">{{ top_bat_plot | safe }}</div>
+        {% endif %}
+
+        <div class="ins-table-wrap" style="margin-top: 0.75rem;">
+          <table class="ins-table">
+            <thead>
+              <tr>
+                <th>Batter</th>
+                <th>Inns/Mat</th>
+                <th>Runs</th>
+                <th>Avg</th>
+                <th>SR</th>
+                <th>4s / 6s</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for _, b in top_batters.iterrows() %}
+              <tr>
+                <td><strong>{{ b['player_name'] }}</strong></td>
+                <td>{{ b['matches'] }}</td>
+                <td><strong style="color: #38bdf8;">{{ "{:,}".format(b['runs']|int) }}</strong></td>
+                <td>{{ b['batting_avg'] }}</td>
+                <td>{{ b['strike_rate'] }}</td>
+                <td><small>{{ b['fours']|int }} / {{ b['sixes']|int }}</small></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {# Bowlers Card #}
+      <div class="ins-perf-card">
+        <div class="ins-perf-header">
+          <h4 class="ins-perf-title"> Top Bowlers (Total Wickets)</h4>
+          <span class="ins-perf-tag">{{ selected_format }} Bowling</span>
+        </div>
+
+        {% if top_bowl_plot %}
+        <div class="ins-chart-body">{{ top_bowl_plot | safe }}</div>
+        {% endif %}
+
+        <div class="ins-table-wrap" style="margin-top: 0.75rem;">
+          <table class="ins-table">
+            <thead>
+              <tr>
+                <th>Bowler</th>
+                <th>Matches</th>
+                <th>Wickets</th>
+                <th>Avg</th>
+                <th>Econ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for _, w in top_bowlers.iterrows() %}
+              <tr>
+                <td><strong>{{ w['player_name'] }}</strong></td>
+                <td>{{ w['matches'] }}</td>
+                <td><strong style="color: #f97316;">{{ w['wickets']|int }}</strong></td>
+                <td>{{ w['bowling_avg'] }}</td>
+                <td>{{ w['economy_rate'] }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
   </div>
 
 </div>
 
+{# ═══════════════════════════════════════════════════════════════
+   RESPONSIVE CHART RESIZING SCRIPT
+═══════════════════════════════════════════════════════════════ #}
 <script>
-var charts = {{ charts | tojson }};
-var ids = ['outcomes','phase_compare','zone_run','zone_wkt','bowler_scatter','over_trend'];
-ids.forEach(function(id) {
-  if (charts[id]) queueChart(id, charts[id]);
+document.addEventListener("DOMContentLoaded", function () {
+  function resizeAllPlots() {
+    var plotDivs = document.querySelectorAll(".js-plotly-plot, .plotly-graph-div");
+    plotDivs.forEach(function (plot) {
+      if (window.Plotly && Plotly.Plots) {
+        Plotly.Plots.resize(plot);
+      }
+    });
+  }
+  setTimeout(resizeAllPlots, 150);
+  setTimeout(resizeAllPlots, 600);
+  window.addEventListener("resize", resizeAllPlots);
 });
 </script>
+
+<style>
+/* ─€─€ Global Insights Styling ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.ins-page-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #e8e8e8;
+}
+.ins-eyebrow {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--accent);
+  background: rgba(79, 142, 247, 0.12);
+  border: 1px solid rgba(79, 142, 247, 0.3);
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  margin-bottom: 0.6rem;
+}
+.ins-title {
+  font-size: 1.85rem;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  color: #111111;
+  margin: 0 0 0.4rem;
+}
+.ins-subtitle {
+  font-size: 0.92rem;
+  color: var(--muted);
+  line-height: 1.6;
+  max-width: 950px;
+  margin: 0;
+}
+
+/* ─€─€ Filter Bar ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.ins-filter-bar {
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.75rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+.ins-filter-grid {
+  display: grid;
+  grid-template-columns: 2fr 2.5fr 1fr 1fr auto;
+  gap: 1rem;
+  align-items: flex-end;
+}
+.ins-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.ins-field label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+}
+.ins-select, .ins-input {
+  background: #ffffff;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #1a1a1a;
+  font-size: 0.84rem;
+  padding: 0.55rem 0.75rem;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+.ins-select:focus, .ins-input:focus {
+  border-color: var(--accent);
+}
+.ins-btn-submit {
+  background: linear-gradient(135deg, #4f8ef7, #2563eb);
+  color: #111111;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  font-weight: 800;
+  padding: 0.6rem 1.25rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.ins-btn-submit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(79, 142, 247, 0.4);
+}
+
+/* ─€─€ KPI Strip ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.ins-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.ins-kpi-card {
+  background: #f0f0f0;
+  border: 1px solid #e4e4e4;
+  border-radius: 10px;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+}
+.ins-kpi-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+  margin-bottom: 0.4rem;
+}
+.ins-kpi-val {
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  margin-bottom: 0.25rem;
+}
+.ins-kpi-sub {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* ─€─€ Section Cards ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.ins-section-card {
+  background: #ffffff;
+  border: 1px solid #e4e4e4;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2.25rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+}
+.ins-section-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e8e8e8;
+}
+.ins-section-num {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--accent);
+  background: rgba(79, 142, 247, 0.12);
+  border: 1px solid rgba(79, 142, 247, 0.3);
+  padding: 0.25rem 0.55rem;
+  border-radius: 6px;
+  font-family: monospace;
+}
+.ins-section-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #111111;
+  margin: 0 0 0.35rem;
+}
+.ins-section-desc {
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+  max-width: 900px;
+}
+
+/* ─€─€ Format Selector & Nav Pills ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.ins-format-selector-anchor {
+  margin: 3rem 0 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 2px dashed #e0e0e0;
+}
+.ins-format-tabs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.ins-format-tabs-title {
+  font-size: 1.35rem;
+  font-weight: 850;
+  color: #111111;
+  margin: 0.4rem 0 0.3rem;
+}
+.ins-format-tabs-desc {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0;
+  max-width: 650px;
+}
+.ins-format-nav-pills {
+  display: flex;
+  gap: 0.6rem;
+  background: #f1f5f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 30px;
+  padding: 0.35rem;
+}
+.ins-pill-btn {
+  text-decoration: none;
+  font-size: 0.84rem;
+  font-weight: 750;
+  padding: 0.55rem 1.15rem;
+  border-radius: 25px;
+  color: var(--muted);
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+}
+.ins-pill-btn:hover {
+  color: #111111;
+  background: rgba(0, 0, 0, 0.06);
+}
+.ins-pill-btn.active-test {
+  background: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.4);
+}
+.ins-pill-btn.active-odi {
+  background: #0284c7;
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(2, 132, 199, 0.4);
+}
+.ins-pill-btn.active-t20i {
+  background: #9333ea;
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(147, 51, 234, 0.4);
+}
+
+/* ─€─€ Stacked Chart Blocks ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.ins-charts-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+.ins-chart-block {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.ins-chart-meta {
+  padding: 1rem 1.25rem 0.6rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+.ins-chart-title {
+  font-size: 0.98rem;
+  font-weight: 750;
+  color: #111111;
+  margin: 0 0 0.25rem;
+}
+.ins-chart-desc {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.5;
+}
+.ins-chart-body {
+  padding: 0.5rem 0.5rem 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+.ins-chart-body .js-plotly-plot,
+.ins-chart-body .plotly-graph-div {
+  width: 100% !important;
+}
+
+/* ─€─€ Top Performers Cards ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.ins-performers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+  gap: 1.5rem;
+}
+.ins-perf-card {
+  background: #f0f0f0;
+  border: 1px solid #e4e4e4;
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+.ins-perf-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid rgba(55, 65, 81, 0.35);
+}
+.ins-perf-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #111111;
+  margin: 0;
+}
+.ins-perf-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: rgba(79, 142, 247, 0.15);
+  color: var(--accent);
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+}
+
+/* ─€─€ Benchmark Tables ─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€─€ */
+.ins-table-wrap {
+  overflow-x: auto;
+}
+.ins-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.ins-table th {
+  text-align: left;
+  padding: 0.75rem 0.9rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #f8f9fa;
+}
+.ins-table td {
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #111111;
+}
+.ins-table tr:hover td { background: rgba(79, 142, 247, 0.05); }
+
+@media (max-width: 992px) {
+  .ins-filter-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ins-performers-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .ins-filter-grid {
+    grid-template-columns: 1fr;
+  }
+  .ins-title { font-size: 1.45rem; }
+  .ins-format-tabs-header { flex-direction: column; align-items: flex-start; }
+}
+</style>
+
 {% endblock %}
+
+
+
+
+
+
+

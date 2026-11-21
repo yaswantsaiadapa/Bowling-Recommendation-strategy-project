@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Cricket Analytics{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <!-- Load Plotly in HEAD so all inline plot scripts find Plotly immediately -->
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
   <!-- Suppress favicon 404 -->
   <link rel="icon" href="data:,">
   <script>
@@ -34,8 +36,12 @@
   <a class="brand" href="/">🏏 Cricket Analytics</a>
   <div class="nav-links">
     <a href="/">Home</a>
-    <a href="/insights">Global Insights</a>
+    <a href="/batting">Batting Analytics</a>
+    <a href="/bowling">Bowling Analytics</a>
     <a href="/matchup">Matchup</a>
+    <a href="/venues">Venues &amp; Teams</a>
+    <a href="/simulator">Match Simulator</a>
+    <a href="/insights">Global Insights</a>
   </div>
 </nav>
 <main class="container">
