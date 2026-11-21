@@ -22,13 +22,9 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import duckdb
 import pandas as pd
+from analytics.db import get_db_connection, DB_PATH
 
-DB_PATH = PROJECT_ROOT / "data" / "processed" / "cricket_master.duckdb"
-
-
-def _get_connection():
-    """Return a read-only connection to the master DuckDB database."""
-    return duckdb.connect(str(DB_PATH), read_only=True)
+_get_connection = get_db_connection
 
 
 def get_filter_options() -> Dict[str, Any]:

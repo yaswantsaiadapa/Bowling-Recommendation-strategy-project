@@ -22,18 +22,12 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import duckdb
 import pandas as pd
-
-DB_PATH = PROJECT_ROOT / "data" / "processed" / "cricket_master.duckdb"
+from analytics.db import get_db_connection, DB_PATH
 
 # Official bowler-credited dismissal kinds per cricket laws
 BOWLER_WICKET_KINDS = (
     "'bowled', 'caught', 'lbw', 'stumped', 'caught and bowled', 'hit wicket'"
 )
-
-
-def get_db_connection() -> duckdb.DuckDBPyConnection:
-    """Returns a read-only DuckDB connection to the local analytical database."""
-    return duckdb.connect(str(DB_PATH), read_only=True)
 
 
 def search_bowlers(query: str, limit: int = 10) -> List[str]:

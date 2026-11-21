@@ -31,8 +31,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import duckdb
 import pandas as pd
-
-DB_PATH = PROJECT_ROOT / "data" / "processed" / "cricket_master.duckdb"
+from analytics.db import get_db_connection, DB_PATH
 
 # Well-known international spinners for Pace vs Spin classification
 KNOWN_SPINNERS = {
@@ -83,11 +82,6 @@ KNOWN_WICKETKEEPERS = {
     "Mushfiqur Rahim", "Litton Das", "Nurul Hasan", "Anamul Haque",
     "Rahmanullah Gurbaz", "Ikram Alikhil", "Mohammad Shahzad"
 }
-
-
-def get_db_connection() -> duckdb.DuckDBPyConnection:
-    """Returns a read-only DuckDB connection."""
-    return duckdb.connect(str(DB_PATH), read_only=True)
 
 
 def get_all_popular_teams() -> List[str]:

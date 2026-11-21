@@ -22,13 +22,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import duckdb
 import pandas as pd
-
-DB_PATH = PROJECT_ROOT / "data" / "processed" / "cricket_master.duckdb"
-
-
-def get_db_connection() -> duckdb.DuckDBPyConnection:
-    """Returns a read-only DuckDB connection to the local analytical database."""
-    return duckdb.connect(str(DB_PATH), read_only=True)
+from analytics.db import get_db_connection, DB_PATH
 
 
 def search_batsmen(query: str, limit: int = 10) -> List[str]:

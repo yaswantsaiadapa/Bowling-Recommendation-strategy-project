@@ -107,11 +107,9 @@ _CACHED_BATSMEN = None
 _CACHED_BOWLERS = None
 
 def _get_top_player_names():
-    import duckdb
-    from pathlib import Path
-    db_path = Path(__file__).resolve().parent / "data" / "processed" / "cricket_master.duckdb"
+    from analytics.db import get_db_connection
     try:
-        con = duckdb.connect(str(db_path), read_only=True)
+        con = get_db_connection()
         batsmen = [r[0] for r in con.execute("SELECT DISTINCT batter FROM fact_deliveries_master WHERE batter IS NOT NULL ORDER BY batter").fetchall()]
         bowlers = [r[0] for r in con.execute("SELECT DISTINCT bowler FROM fact_deliveries_master WHERE bowler IS NOT NULL ORDER BY bowler").fetchall()]
         con.close()
