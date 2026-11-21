@@ -20,15 +20,19 @@ import os
 import argparse
 from pathlib import Path
 import duckdb
-from dotenv import load_dotenv
 
 # ----------------------------------------------------------------------
 # Resolve project root (two levels up from this file) and load the .env file
 # ----------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENV_PATH = PROJECT_ROOT / "analytics" / ".env"
-if ENV_PATH.exists():
-    load_dotenv(dotenv_path=ENV_PATH)
+
+try:
+    from dotenv import load_dotenv
+    if ENV_PATH.exists():
+        load_dotenv(dotenv_path=ENV_PATH)
+except ImportError:
+    pass
 
 DB_PATH = PROJECT_ROOT / "data" / "processed" / "cricket_master.duckdb"
 MOTHERDUCK_TOKEN = os.getenv("MOTHERDUCK_TOKEN")
